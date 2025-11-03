@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background: linear-gradient(135deg, 
+    rgba(255, 153, 216, 0.1) 0%, 
+    rgba(206, 168, 240, 0.1) 35%, 
+    rgba(137, 187, 228, 0.1) 70%, 
+    rgba(153, 255, 206, 0.1) 100%),
+    #0f172a;
+  background-attachment: fixed;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.4s ease-in-out;
+}
