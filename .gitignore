@@ -1,3 +1,5 @@
 node_modules
 # Next.js cache
 .next/
+# Environment variables
+.env.local
