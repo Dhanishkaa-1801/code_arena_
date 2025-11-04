@@ -1,35 +1,71 @@
-'use client';
-import { Contest } from '@/types';
+import Link from 'next/link';
+import Countdown from './Countdown'; // The new component for live countdowns
+import { Database } from '@/types_db'; // The auto-generated types from Supabase
 
-const statusStyles = {
-  active: 'bg-arena-mint/20 text-arena-mint',
-  upcoming: 'bg-arena-blue/20 text-arena-blue',
-  finished: 'bg-arena-pink/20 text-arena-pink',
+// Define a more specific type for the contest prop, combining the DB row with a status.
+type Contest = Database['public']['Tables']['contests']['Row'] & {
+  status: 'Upcoming' | 'Active' | 'Finished';
+};
+
+// A small, self-contained component for the status badge.
+const StatusBadge = ({ status }: { status: Contest['status'] }) => {
+  const statusStyles = {
+    Upcoming: 'bg-blue-500/20 text-blue-300',
+    Active: 'bg-green-500/20 text-green-300 animate-pulse',
+    Finished: 'bg-gray-500/20 text-gray-400',
+  };
+  return (
+    <span className={`absolute top-4 right-4 px-3 py-1 text-xs font-semibold rounded-full ${statusStyles[status]}`}>
+      {status}
+    </span>
+  );
 };
 
 export default function ContestCard({ contest }: { contest: Contest }) {
+  // This function determines what to display in the bottom section of the card
+  // based on the contest's live status.
+  const renderAction = () => {
+    switch (contest.status) {
+      case 'Upcoming':
+        // If upcoming, we show the live Countdown component.
+        return <Countdown targetDate={contest.start_time} />;
+      
+      case 'Active':
+        // If active, show a prominent "Active Now" link.
+        return (
+          <Link href={`/contests/${contest.id}`} className="w-full text-center py-3 px-4 bg-gradient-to-r from-arena-green to-arena-mint text-dark-bg font-bold rounded-md hover:opacity-90 transition-opacity">
+            Active Now
+          </Link>
+        );
+      
+      case 'Finished':
+        // If finished, link to a future results page.
+        return (
+          <Link href={`/contests/${contest.id}/results`} className="w-full text-center py-3 px-4 bg-card-bg border border-border-color font-semibold rounded-md hover:bg-slate-700 transition-colors">
+            View Results
+          </Link>
+        );
+        
+      default:
+        return null;
+    }
+  };
+
   return (
-    <div className="bg-card-bg rounded-xl p-6 border border-border-color hover:border-arena-pink hover:-translate-y-1.5 transition-all duration-300 shadow-lg shadow-black/20">
-      <h3 className="text-arena-blue text-xl font-semibold mb-3">{contest.title}</h3>
-      <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium mb-4 ${statusStyles[contest.status]}`}>
-        {contest.status}
-      </span>
-      <p className="text-gray-400 mb-4 text-sm min-h-[60px]">{contest.description}</p>
-      <div className="text-gray-300 text-sm space-y-1 mb-4">
-        {contest.duration && <p><strong>Duration:</strong> {contest.duration}</p>}
-        {contest.participants && <p><strong>Participants:</strong> {contest.participants.toLocaleString()}</p>}
-        {contest.startsIn && <p><strong>Starts in:</strong> {contest.startsIn}</p>}
-        {contest.difficulty && <p><strong>Difficulty:</strong> {contest.difficulty}</p>}
-        {contest.winner && <p><strong>Winner:</strong> {contest.winner}</p>}
+    <div className="bg-card-bg border border-border-color rounded-xl p-6 flex flex-col relative hover:border-arena-pink/50 transition-colors duration-300 shadow-lg shadow-black/20 hover:-translate-y-1">
+      <StatusBadge status={contest.status} />
+      
+      <div className="flex-grow">
+        <h3 className="text-xl font-bold text-gray-100 mt-4 mb-2">{contest.name}</h3>
+        {/* We use line-clamp to ensure descriptions don't make cards uneven heights */}
+        <p className="text-sm text-gray-400 line-clamp-3 min-h-[60px]">
+          {contest.description || 'No description provided for this contest.'}
+        </p>
       </div>
-      <button className={`mt-4 w-full px-6 py-2.5 rounded-md font-semibold transition-all text-sm ${
-          contest.status === 'active'
-            ? 'bg-gradient-to-r from-arena-pink to-arena-purple text-dark-bg hover:shadow-lg hover:shadow-arena-pink/40'
-            : 'bg-border-color text-gray-200 hover:bg-gray-600'
-        }`}
-      >
-        {contest.status === 'active' ? 'Join Contest' : contest.status === 'upcoming' ? 'Remind Me' : 'View Results'}
-      </button>
+
+      <div className="mt-6 pt-6 border-t border-border-color flex items-center justify-center">
+        {renderAction()}
+      </div>
     </div>
   );
 }

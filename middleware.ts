@@ -1,26 +1,48 @@
-// middleware.ts
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/utils/supabase/middleware';
 
 export async function middleware(request: NextRequest) {
   const { supabase, response } = createClient(request);
-
-  // This will refresh the session cookie if it's expired.
-  await supabase.auth.getSession();
-
-  // Define public routes that anyone can access
-  const publicRoutes = ['/', '/login', '/auth/callback'];
+  const { data: { session } } = await supabase.auth.getSession();
   const { pathname } = request.nextUrl;
 
-  // Check if the current route is a public route
+  const publicRoutes = ['/', '/login', '/auth/callback'];
   const isPublicRoute = publicRoutes.some(route => pathname === route);
+  const isAuthRoute = pathname.startsWith('/auth');
 
-  // If it's not a public route, proceed to check for a session
-  if (!isPublicRoute) {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      // If there's no session and the route is protected, redirect to login
-      return NextResponse.redirect(new URL('/login', request.url));
+  if (isPublicRoute || isAuthRoute) {
+    return response;
+  }
+
+  if (!session) {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+
+  // --- NEW: Combine profile and role check into one query ---
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('profile_complete, role')
+    .eq('id', session.user.id)
+    .single();
+
+  // If profile isn't complete, enforce setup
+  if (profile && !profile.profile_complete) {
+    if (pathname !== '/setup-profile') {
+      return NextResponse.redirect(new URL('/setup-profile', request.url));
+    }
+  }
+
+  // If profile is complete but they are on setup page, redirect away
+  if (profile && profile.profile_complete && pathname === '/setup-profile') {
+    return NextResponse.redirect(new URL('/contests', request.url));
+  }
+
+  // --- NEW: Admin Role Check ---
+  // If the user is trying to access an admin route
+  if (pathname.startsWith('/admin')) {
+    // And their role is NOT 'admin', redirect them away
+    if (profile?.role !== 'admin') {
+      return NextResponse.redirect(new URL('/contests', request.url)); // Or a '/403' access-denied page
     }
   }
 
@@ -29,13 +51,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * Feel free to add other public assets here.
-     */
     '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };

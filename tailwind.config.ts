@@ -18,6 +18,8 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    require('@tailwindcss/typography'), // <-- This is the added line for the preview modal styling
+  ],
 };
 export default config;
