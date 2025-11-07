@@ -12,6 +12,7 @@ const config: Config = {
         'arena-purple': '#CEA8F0',
         'arena-blue': '#89BBE4',
         'arena-mint': '#99FFCE',
+        'arena-green': '#00F0A0',
         'dark-bg': '#0f172a',
         'card-bg': '#1e293b',
         'border-color': '#334155',

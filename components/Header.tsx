@@ -16,6 +16,7 @@ export default async function Header() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
+  console.log('--- HEADER COMPONENT --- User object:', user);
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
   const userAvatarUrl = user?.user_metadata?.avatar_url;
 
