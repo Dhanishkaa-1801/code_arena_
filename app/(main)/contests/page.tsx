@@ -3,24 +3,23 @@
 import { createClient } from '@/utils/supabase/server';
 import ContestCard from '@/components/ContestCard';
 import { Database } from '@/types_db';
-import { AdminLink } from '@/components/AdminLink'; // Import the AdminLink component
+import { AdminLink } from '@/components/AdminLink';
 
-// This ensures this page is always rendered fresh on every visit.
 export const dynamic = 'force-dynamic';
 
-// Define a more complete type for our contests
 type ContestWithStatus = Database['public']['Tables']['contests']['Row'] & {
   status: 'Upcoming' | 'Active' | 'Finished';
 };
 
-// Helper function to determine the contest status
+// --- THIS IS THE FIX for the transition bug ---
+// We now use .getTime() for a reliable, timezone-independent comparison.
 const getContestStatus = (
   startTime: string,
   endTime: string
 ): 'Upcoming' | 'Active' | 'Finished' => {
-  const now = new Date();
-  const start = new Date(startTime);
-  const end = new Date(endTime);
+  const now = new Date().getTime(); // Current time in milliseconds
+  const start = new Date(startTime).getTime(); // Start time in milliseconds
+  const end = new Date(endTime).getTime(); // End time in milliseconds
 
   if (now < start) return 'Upcoming';
   if (now >= start && now <= end) return 'Active';
@@ -40,24 +39,20 @@ export default async function ContestsLobbyPage() {
     return <p className="text-center text-red-400">Could not load contests. Please try again later.</p>;
   }
 
-  // Map the raw data to include the status
   const contests: ContestWithStatus[] = contestsData.map(contest => ({
     ...contest,
     status: getContestStatus(contest.start_time, contest.end_time),
   }));
 
-  // Filter contests into their respective categories
   const activeContests = contests.filter(c => c.status === 'Active');
   const upcomingContests = contests.filter(c => c.status === 'Upcoming');
   const finishedContests = contests.filter(c => c.status === 'Finished');
 
   return (
     <main className="max-w-7xl mx-auto p-4 md:p-8">
-      {/* This AdminLink will only be visible if you are logged in as an admin */}
       <AdminLink />
 
       <div className="space-y-12 mt-8">
-        {/* Active Contests Section */}
         {activeContests.length > 0 && (
           <section>
             <h2 className="text-3xl font-extrabold text-white mb-6">
@@ -69,7 +64,6 @@ export default async function ContestsLobbyPage() {
           </section>
         )}
         
-        {/* Upcoming Contests Section */}
         {upcomingContests.length > 0 && (
           <section>
             <h2 className="text-3xl font-extrabold text-white mb-6">
@@ -81,7 +75,6 @@ export default async function ContestsLobbyPage() {
           </section>
         )}
 
-        {/* Finished Contests Section */}
         {finishedContests.length > 0 && (
           <section>
             <h2 className="text-3xl font-extrabold text-white mb-6">
@@ -93,7 +86,6 @@ export default async function ContestsLobbyPage() {
           </section>
         )}
 
-        {/* Message for when there are no contests at all */}
         {contests.length === 0 && (
           <div className="text-center py-20 bg-gray-900/50 rounded-lg">
             <h3 className="text-2xl font-bold text-gray-300">No Contests Scheduled</h3>

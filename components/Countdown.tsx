@@ -1,63 +1,70 @@
+// components/Countdown.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
 
-// A placeholder component to show during server render and initial client render
-const Placeholder = () => (
-  <div className="flex space-x-3 text-center">
-    {['days', 'hours', 'minutes', 'seconds'].map((interval) => (
-        <div key={interval} className="flex flex-col items-center">
-          <span className="text-xl lg:text-2xl font-bold text-gray-100">--</span>
-          <span className="text-xs text-gray-400 uppercase">{interval}</span>
-        </div>
-      ))}
-  </div>
-);
-
-const calculateTimeLeft = (targetDate: Date) => {
-  const difference = +targetDate - +new Date();
-  let timeLeft = { days: 0, hours: 0, minutes: 0, seconds: 0 };
+// This function calculates the remaining time and returns it.
+const calculateTimeLeft = (endTime: string) => {
+  const difference = +new Date(endTime) - +new Date();
+  let timeLeft = {
+    hours: 0,
+    minutes: 0,
+    seconds: 0,
+  };
 
   if (difference > 0) {
     timeLeft = {
-      days: Math.floor(difference / (1000 * 60 * 60 * 24)),
-      hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
+      // We add days to hours in case a contest spans more than 24 hours
+      hours: Math.floor(difference / (1000 * 60 * 60)),
       minutes: Math.floor((difference / 1000 / 60) % 60),
       seconds: Math.floor((difference / 1000) % 60),
     };
   }
+
   return timeLeft;
 };
 
-export default function Countdown({ targetDate }: { targetDate: string }) {
+// The component now takes an `endTime` prop for clarity
+export default function Countdown({ endTime }: { endTime: string }) {
+  const [timeLeft, setTimeLeft] = useState(calculateTimeLeft(endTime));
   const [isClient, setIsClient] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(calculateTimeLeft(new Date(targetDate)));
 
-  // This useEffect only runs on the client, after the component has "mounted".
   useEffect(() => {
+    // This ensures this code only runs on the client, preventing hydration errors
     setIsClient(true);
-
-    const timer = setTimeout(() => {
-      setTimeLeft(calculateTimeLeft(new Date(targetDate)));
-    }, 1000);
     
-    return () => clearTimeout(timer);
-  });
+    // Using setInterval to update the timer every second
+    const timer = setInterval(() => {
+      setTimeLeft(calculateTimeLeft(endTime));
+    }, 1000);
 
-  // On the server and during the initial client render, show the placeholder.
-  if (!isClient) {
-    return <Placeholder />;
+    // Clean up the interval when the component is unmounted
+    return () => clearInterval(timer);
+  }, [endTime]); // The effect re-runs if the endTime prop changes
+
+  const isFinished = Object.values(timeLeft).every(val => val === 0);
+
+  if (isFinished) {
+    return (
+      <div className="text-2xl font-bold text-red-500 animate-pulse">
+        Contest Over
+      </div>
+    );
   }
 
-  // Once mounted on the client, show the actual countdown.
+  // On the server or before the client has mounted, show a simple placeholder
+  if (!isClient) {
+    return <div className="font-mono text-2xl font-bold text-white tracking-widest">--:--:--</div>;
+  }
+
+  // Helper to format the time values with a leading zero if needed
+  const formatTime = (time: number) => String(time).padStart(2, '0');
+
   return (
-    <div className="flex space-x-3 text-center">
-      {Object.entries(timeLeft).map(([interval, value]) => (
-        <div key={interval} className="flex flex-col items-center">
-          <span className="text-xl lg:text-2xl font-bold text-gray-100">{String(value).padStart(2, '0')}</span>
-          <span className="text-xs text-gray-400 uppercase">{interval}</span>
-        </div>
-      ))}
+    <div className="font-mono text-2xl font-bold text-white tracking-widest">
+      <span>{formatTime(timeLeft.hours)}</span>:
+      <span>{formatTime(timeLeft.minutes)}</span>:
+      <span>{formatTime(timeLeft.seconds)}</span>
     </div>
   );
 }

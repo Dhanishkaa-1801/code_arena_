@@ -1,3 +1,5 @@
+// tailwind.config.ts
+
 import type { Config } from "tailwindcss";
 
 const config: Config = {
@@ -20,7 +22,8 @@ const config: Config = {
     },
   },
   plugins: [
-    require('@tailwindcss/typography'), // <-- This is the added line for the preview modal styling
+    // This plugin is essential for styling the Markdown content of problem descriptions.
+    require('@tailwindcss/typography'),
   ],
 };
 export default config;

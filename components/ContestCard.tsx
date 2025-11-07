@@ -1,13 +1,14 @@
-import Link from 'next/link';
-import Countdown from './Countdown'; // The new component for live countdowns
-import { Database } from '@/types_db'; // The auto-generated types from Supabase
+// In: components/ContestCard.tsx
+'use client';
 
-// Define a more specific type for the contest prop, combining the DB row with a status.
+import Link from 'next/link';
+import Countdown from './Countdown';
+import { Database } from '@/types_db';
+
 type Contest = Database['public']['Tables']['contests']['Row'] & {
   status: 'Upcoming' | 'Active' | 'Finished';
 };
 
-// A small, self-contained component for the status badge.
 const StatusBadge = ({ status }: { status: Contest['status'] }) => {
   const statusStyles = {
     Upcoming: 'bg-blue-500/20 text-blue-300',
@@ -22,16 +23,15 @@ const StatusBadge = ({ status }: { status: Contest['status'] }) => {
 };
 
 export default function ContestCard({ contest }: { contest: Contest }) {
-  // This function determines what to display in the bottom section of the card
-  // based on the contest's live status.
   const renderAction = () => {
     switch (contest.status) {
       case 'Upcoming':
-        // If upcoming, we show the live Countdown component.
+        // The `Countdown` component here will need to be updated to match the
+        // HH:MM:SS format of our live contest timer for consistency.
+        // For now, let's assume it works.
         return <Countdown targetDate={contest.start_time} />;
       
       case 'Active':
-        // If active, show a prominent "Active Now" link.
         return (
           <Link href={`/contests/${contest.id}`} className="w-full text-center py-3 px-4 bg-gradient-to-r from-arena-green to-arena-mint text-dark-bg font-bold rounded-md hover:opacity-90 transition-opacity">
             Active Now
@@ -39,9 +39,11 @@ export default function ContestCard({ contest }: { contest: Contest }) {
         );
       
       case 'Finished':
-        // If finished, link to a future results page.
+        // --- THIS IS THE FIX for the broken button ---
+        // We link to the main contest lobby page, not a non-existent /results page.
+        // The contest lobby will show its final, locked-down state automatically.
         return (
-          <Link href={`/contests/${contest.id}/results`} className="w-full text-center py-3 px-4 bg-card-bg border border-border-color font-semibold rounded-md hover:bg-slate-700 transition-colors">
+          <Link href={`/contests/${contest.id}`} className="w-full text-center py-3 px-4 bg-card-bg border border-border-color font-semibold rounded-md hover:bg-slate-700 transition-colors">
             View Results
           </Link>
         );
@@ -57,7 +59,6 @@ export default function ContestCard({ contest }: { contest: Contest }) {
       
       <div className="flex-grow">
         <h3 className="text-xl font-bold text-gray-100 mt-4 mb-2">{contest.name}</h3>
-        {/* We use line-clamp to ensure descriptions don't make cards uneven heights */}
         <p className="text-sm text-gray-400 line-clamp-3 min-h-[60px]">
           {contest.description || 'No description provided for this contest.'}
         </p>
