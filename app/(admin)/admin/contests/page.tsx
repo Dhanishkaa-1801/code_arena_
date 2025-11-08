@@ -28,17 +28,16 @@ export default async function ViewContestsPage() {
             <li key={contest.id} className="p-4 flex flex-col sm:flex-row justify-between sm:items-center hover:bg-slate-800 transition-colors">
               <div className="mb-2 sm:mb-0">
                 <p className="font-bold text-lg text-gray-100">{contest.name}</p>
-                <div className="flex space-x-4 text-sm text-gray-400 mt-1">
-                  
-                  {/* We are reverting back to the simple toLocaleString() method.
-                      This will now work correctly because the data being saved to the
-                      database is the true UTC timestamp. */}
+                <div className="flex flex-wrap space-x-4 text-sm text-gray-400 mt-1">
                   <span>Starts: {new Date(contest.start_time).toLocaleString()}</span>
                   <span>Ends: {new Date(contest.end_time).toLocaleString()}</span>
-                  
                 </div>
               </div>
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-4">
+                 {/* --- NEW LINK ADDED HERE --- */}
+                 <Link href={`/contests/${contest.id}/leaderboard`} className="text-arena-mint font-semibold hover:underline" target="_blank" rel="noopener noreferrer">
+                    View Results
+                 </Link>
                  <Link href={`/admin/contests/${contest.id}`} className="text-arena-pink font-semibold hover:underline">
                     Manage Problems
                  </Link>

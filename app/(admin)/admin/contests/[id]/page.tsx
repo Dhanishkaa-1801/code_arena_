@@ -1,12 +1,14 @@
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import { PracticeToggle } from '@/components/PracticeToggle'; // <-- CORRECTED IMPORT PATH
 
 export default async function ManageContestProblemsPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
   const contestId = params.id;
 
+  // Fetch contest and problems data in parallel for efficiency
   const [contestRes, problemsRes] = await Promise.all([
     supabase.from('contests').select('name').eq('id', contestId).single(),
     supabase.from('contest_problems').select('*').eq('contest_id', contestId).order('created_at')
@@ -20,8 +22,7 @@ export default async function ManageContestProblemsPage({ params }: { params: { 
     notFound();
   }
 
-  // --- UPDATED SERVER ACTION ---
-  // The 'description' field is no longer needed here.
+  // --- SERVER ACTION FOR ADDING A PROBLEM (RESTORED) ---
   const addProblem = async (formData: FormData) => {
     'use server';
 
@@ -30,7 +31,8 @@ export default async function ManageContestProblemsPage({ params }: { params: { 
     const contestId = formData.get('contestId') as string;
 
     if (!title || !difficulty || !contestId) {
-        return { error: 'Missing required fields.' };
+        // In a real app, you might return state to the form to show an error message
+        return;
     }
 
     const supabase = createClient();
@@ -38,14 +40,15 @@ export default async function ManageContestProblemsPage({ params }: { params: { 
         contest_id: contestId,
         title,
         difficulty,
-        // The 'description' field is now omitted and will default to null in the DB
     });
 
     if (error) {
         console.error("Error adding problem:", error);
-        return { error: 'Failed to add problem.' };
+        // Handle error, maybe return a message
+        return;
     }
     
+    // If successful, revalidate the path to show the new problem
     revalidatePath(`/admin/contests/${contestId}`);
   };
 
@@ -62,15 +65,12 @@ export default async function ManageContestProblemsPage({ params }: { params: { 
           <div className="bg-card-bg p-6 rounded-lg border border-border-color sticky top-24">
             <h3 className="text-xl font-semibold mb-4 text-arena-mint">Add New Problem</h3>
             
-            {/* --- UPDATED FORM --- */}
             <form action={addProblem} className="space-y-4">
               <input type="hidden" name="contestId" value={contestId} />
               <div>
                 <label htmlFor="title" className="block text-sm font-medium text-gray-300">Problem Title</label>
                 <input type="text" name="title" id="title" required className="mt-1 w-full bg-dark-bg border border-border-color rounded-md p-2" />
               </div>
-
-              {/* The description textarea has been REMOVED from this form */}
               
               <div>
                 <label htmlFor="difficulty" className="block text-sm font-medium text-gray-300">Difficulty</label>
@@ -93,27 +93,36 @@ export default async function ManageContestProblemsPage({ params }: { params: { 
             <h3 className="text-xl font-semibold mb-4 text-arena-blue">Existing Problems ({problems?.length || 0})</h3>
             <div className="space-y-4">
               {problems && problems.length > 0 ? problems.map(problem => (
-                <div key={problem.id} className="p-4 bg-dark-bg rounded-md border border-border-color">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-bold">{problem.title}</p>
-                      {/* This description will now likely be empty until edited, which is fine */}
-                      <p className="mt-2 text-sm text-gray-400 truncate">{problem.description || 'No question added yet. Click "Edit Details".'}</p>
+                <div key={problem.id} className="p-4 bg-dark-bg rounded-md border border-border-color flex flex-col">
+                  <div className="flex-grow">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-bold text-lg">{problem.title}</p>
+                        <p className="mt-1 text-sm text-gray-400 line-clamp-1">{problem.description || 'No question added yet. Click "Edit Details".'}</p>
+                      </div>
+                      <div className="flex-shrink-0 ml-4 flex items-center space-x-4">
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                          problem.difficulty === 'Easy' ? 'bg-green-500/20 text-green-300' :
+                          problem.difficulty === 'Medium' ? 'bg-yellow-500/20 text-yellow-300' :
+                          'bg-red-500/20 text-red-300'
+                        }`}>{problem.difficulty}</span>
+                        
+                        <Link 
+                          href={`/admin/contests/${contestId}/problems/${problem.id}`} 
+                          className="text-sm font-semibold text-arena-blue hover:underline"
+                        >
+                          Edit Details
+                        </Link>
+                      </div>
                     </div>
-                    <div className="flex-shrink-0 ml-4 flex items-center space-x-4">
-                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                        problem.difficulty === 'Easy' ? 'bg-green-500/20 text-green-300' :
-                        problem.difficulty === 'Medium' ? 'bg-yellow-500/20 text-yellow-300' :
-                        'bg-red-500/20 text-red-300'
-                      }`}>{problem.difficulty}</span>
-                      
-                      <Link 
-                        href={`/admin/contests/${contestId}/problems/${problem.id}`} 
-                        className="text-sm font-semibold text-arena-blue hover:underline"
-                      >
-                        Edit Details
-                      </Link>
-                    </div>
+                  </div>
+                  {/* --- NEW TOGGLE ADDED TO THE BOTTOM OF THE CARD --- */}
+                  <div className="mt-4 pt-4 border-t border-border-color/50 flex justify-end">
+                    <PracticeToggle 
+                      problemId={problem.id} 
+                      contestId={contestId}
+                      isAvailable={problem.is_practice_available} 
+                    />
                   </div>
                 </div>
               )) : <p className="text-gray-400">No problems have been added to this contest yet.</p>}

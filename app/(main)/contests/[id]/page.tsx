@@ -1,12 +1,10 @@
 // In: app/(main)/contests/[id]/page.tsx
-// This file is already correct and finalized. No changes are needed.
 
 import { createClient } from '@/utils/supabase/server';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import Countdown from '@/components/Countdown';
 
-// This forces the page to be rendered fresh on every visit.
 export const dynamic = 'force-dynamic';
 
 export default async function ContestArenaPage({ params }: { params: { id: string } }) {
@@ -30,7 +28,7 @@ export default async function ContestArenaPage({ params }: { params: { id: strin
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-8">
-      {/* Page Header with Title and Live Timer */}
+      {/* Page Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 border-b border-border-color pb-6">
         <div>
           <h1 className="text-4xl font-bold text-white tracking-tight">{contest.name}</h1>
@@ -42,7 +40,7 @@ export default async function ContestArenaPage({ params }: { params: { id: strin
         </div>
       </div>
 
-      {/* Button to view the leaderboard */}
+      {/* Leaderboard Button */}
       <div className="mb-10">
         <Link 
           href={`/contests/${contest.id}/leaderboard`} 
@@ -59,7 +57,10 @@ export default async function ContestArenaPage({ params }: { params: { id: strin
           contest.contest_problems.map((problem, index) => (
             <Link 
               key={problem.id}
-              href={`/contests/${contest.id}/problems/${problem.id}`}
+              // --- THIS IS THE FINALIZED CHANGE ---
+              // We append the index as a URL search parameter.
+              // This allows the destination page to know it's "Problem A", "Problem B", etc.
+              href={`/contests/${contest.id}/problems/${problem.id}?index=${index}`}
               className="block bg-card-bg border border-border-color p-4 rounded-lg hover:bg-slate-800 transition-colors duration-200"
             >
               <div className="flex items-center justify-between">
