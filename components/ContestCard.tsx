@@ -1,4 +1,3 @@
-// In: components/ContestCard.tsx
 'use client';
 
 import Link from 'next/link';
@@ -16,7 +15,9 @@ const StatusBadge = ({ status }: { status: Contest['status'] }) => {
     Finished: 'bg-gray-500/20 text-gray-400',
   };
   return (
-    <span className={`absolute top-4 right-4 px-3 py-1 text-xs font-semibold rounded-full ${statusStyles[status]}`}>
+    <span
+      className={`absolute top-4 right-4 px-3 py-1 text-xs font-semibold rounded-full ${statusStyles[status]}`}
+    >
       {status}
     </span>
   );
@@ -26,28 +27,28 @@ export default function ContestCard({ contest }: { contest: Contest }) {
   const renderAction = () => {
     switch (contest.status) {
       case 'Upcoming':
-        // The `Countdown` component here will need to be updated to match the
-        // HH:MM:SS format of our live contest timer for consistency.
-        // For now, let's assume it works.
         return <Countdown targetDate={contest.start_time} />;
-      
+
       case 'Active':
         return (
-          <Link href={`/contests/${contest.id}`} className="w-full text-center py-3 px-4 bg-gradient-to-r from-arena-green to-arena-mint text-dark-bg font-bold rounded-md hover:opacity-90 transition-opacity">
+          <Link
+            href={`/contests/${contest.id}`}
+            className="w-full text-center py-3 px-4 bg-gradient-to-r from-arena-green to-arena-mint text-dark-bg font-bold rounded-md hover:opacity-90 transition-opacity"
+          >
             Active Now
           </Link>
         );
-      
+
       case 'Finished':
-        // --- THIS IS THE FIX for the broken button ---
-        // We link to the main contest lobby page, not a non-existent /results page.
-        // The contest lobby will show its final, locked-down state automatically.
         return (
-          <Link href={`/contests/${contest.id}`} className="w-full text-center py-3 px-4 bg-card-bg border border-border-color font-semibold rounded-md hover:bg-slate-700 transition-colors">
+          <Link
+            href={`/contests/${contest.id}`}
+            className="w-full text-center py-3 px-4 bg-card-bg border border-border-color font-semibold rounded-md hover:bg-slate-700 transition-colors"
+          >
             View Results
           </Link>
         );
-        
+
       default:
         return null;
     }
@@ -56,9 +57,11 @@ export default function ContestCard({ contest }: { contest: Contest }) {
   return (
     <div className="bg-card-bg border border-border-color rounded-xl p-6 flex flex-col relative hover:border-arena-pink/50 transition-colors duration-300 shadow-lg shadow-black/20 hover:-translate-y-1">
       <StatusBadge status={contest.status} />
-      
+
       <div className="flex-grow">
-        <h3 className="text-xl font-bold text-gray-100 mt-4 mb-2">{contest.name}</h3>
+        <h3 className="text-xl font-bold text-gray-100 mt-4 mb-2">
+          {contest.name}
+        </h3>
         <p className="text-sm text-gray-400 line-clamp-3 min-h-[60px]">
           {contest.description || 'No description provided for this contest.'}
         </p>
