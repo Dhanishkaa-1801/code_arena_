@@ -1,17 +1,34 @@
-import AdminNavigation from '@/components/AdminNavigation'; // <-- Import the component
+import Header, { NavItem } from '@/components/Header';
+import { createClient } from '@/utils/supabase/server';
 
-// This layout will wrap all pages inside the /admin route
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+// Define the specific links for the Admin Panel
+const adminNavItems: NavItem[] = [
+  { label: 'View Contests', href: '/admin/contests' },
+  { label: 'Host New Contest', href: '/admin/host' },
+  // You can add Leaderboard here if you have a specific admin leaderboard route
+];
+
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  // We need the user data to populate the Header profile
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
   return (
-    <div className="bg-dark-bg min-h-screen text-white">
-      <header className="bg-card-bg border-b border-border-color p-4 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <h1 className="text-xl font-bold text-arena-pink">Admin Dashboard</h1>
-          <AdminNavigation /> {/* <-- Add the navigation here */}
+    <div className="min-h-screen bg-dark-bg text-white flex flex-col">
+      {/* 
+        Reusing the standard Header component. 
+        We pass 'adminNavItems' so it shows admin links instead of student links.
+      */}
+      <Header user={user} customNavItems={adminNavItems} />
+
+      <main className="flex-1 w-full">
+        {/* 
+           We keep a container here for admin pages so tables don't stretch too wide. 
+           If you want full width for admin too, remove 'max-w-7xl mx-auto px-8'.
+        */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8">
+          {children}
         </div>
-      </header>
-      <main className="p-8 max-w-7xl mx-auto">
-        {children}
       </main>
     </div>
   );

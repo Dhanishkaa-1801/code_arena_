@@ -1,11 +1,15 @@
-// components/Header.tsx
-'use client'; // This component now uses a hook, so it must be a client component.
+'use client';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { type User } from '@supabase/supabase-js'; // Import the User type
+import { type User } from '@supabase/supabase-js';
 
-// A small sub-component for the Sign Out button
+// Define the shape of a navigation item
+export type NavItem = {
+  label: string;
+  href: string;
+};
+
 const SignOutButton = () => {
   return (
     <form action="/auth/sign-out" method="post">
@@ -16,18 +20,13 @@ const SignOutButton = () => {
   );
 };
 
-// This is the new navigation link component
-const NavLinks = () => {
+// Updated to accept items as a prop
+const NavLinks = ({ items }: { items: NavItem[] }) => {
   const pathname = usePathname();
-  const navItems = [
-    { label: 'Contests', href: '/contests' },
-    { label: 'Problems', href: '/problems' },
-    // We can add Dashboard back later inside the user dropdown
-  ];
 
   return (
     <div className="flex items-center gap-2">
-      {navItems.map((item) => {
+      {items.map((item) => {
         const isActive = pathname.startsWith(item.href);
         return (
           <Link
@@ -47,22 +46,39 @@ const NavLinks = () => {
   );
 };
 
-// The Header now receives the user object as a prop from the layout
-export default function Header({ user }: { user: User | null }) {
+interface HeaderProps {
+  user: User | null;
+  customNavItems?: NavItem[]; // New optional prop
+}
+
+export default function Header({ user, customNavItems }: HeaderProps) {
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
   const userAvatarUrl = user?.user_metadata?.avatar_url;
+
+  // Default links for Students
+  const defaultNavItems: NavItem[] = [
+    { label: 'Contests', href: '/contests' },
+    { label: 'Problems', href: '/problems' },
+  ];
+
+  // Use custom items if provided (for Admin), otherwise default
+  const itemsToRender = customNavItems || defaultNavItems;
 
   return (
     <header className="bg-card-bg/80 backdrop-blur-lg border-b border-border-color h-[70px] sticky top-0 z-50">
       <div className="max-w-[1600px] mx-auto px-4 sm:px-8 h-full flex items-center justify-between">
         {/* Left Section: Logo and Nav Links */}
         <div className="flex items-center gap-6">
-          <Link href="/contests" className="flex items-center gap-3">
+          <Link href={customNavItems ? "/admin/contests" : "/contests"} className="flex items-center gap-3">
             <i className="fas fa-code text-arena-pink text-3xl"></i>
             <span className="hidden sm:block text-xl font-bold text-arena-pink tracking-wider">CODE ARENA</span>
+            {/* Optional Badge for Admin */}
+            {customNavItems && (
+              <span className="bg-arena-pink/20 text-arena-pink text-xs px-2 py-0.5 rounded border border-arena-pink/30">ADMIN</span>
+            )}
           </Link>
           <div className="hidden md:flex">
-             <NavLinks />
+             <NavLinks items={itemsToRender} />
           </div>
         </div>
         
@@ -82,7 +98,6 @@ export default function Header({ user }: { user: User | null }) {
               </div>
               <div className="absolute top-full right-0 mt-2 w-48 bg-card-bg border border-border-color rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50 pointer-events-none group-hover:pointer-events-auto">
                 <div className="py-1">
-                  {/* We will add Dashboard link here later */}
                   <SignOutButton />
                 </div>
               </div>
