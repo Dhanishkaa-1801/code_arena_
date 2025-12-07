@@ -1,3 +1,5 @@
+// In: app/(main)/problems/page.tsx
+
 import { createClient } from '@/utils/supabase/server';
 import PracticeProblemTable from '@/components/PracticeProblemTable';
 import type { PracticeProblem } from '@/components/PracticeProblemTable';
@@ -9,9 +11,10 @@ export default async function ProblemBankPage() {
   const { data: { user } } = await supabase.auth.getUser();
 
   // 1. Fetch problems from finished contests
+  // CHANGED: Added 'name' to the select so we can detect the Collection contest
   const { data: problems, error: problemsError } = await supabase
     .from('contest_problems')
-    .select(`id, title, difficulty, contests ( end_time )`)
+    .select(`id, title, difficulty, contests ( name, end_time )`)
     .eq('is_practice_available', true)
     .lt('contests.end_time', new Date().toISOString())
     .order('id', { ascending: true });
@@ -39,15 +42,22 @@ export default async function ProblemBankPage() {
   // 3. Combine all data into the final list for the UI
   const practiceProblems: PracticeProblem[] = (problems || [])
     .filter(p => p.contests)
-    .map(p => ({
-      id: p.id,
-      title: p.title,
-      difficulty: p.difficulty,
-      status: problemStatusMap.get(p.id) || 'Not Attempted',
-      // --- 'source' PROPERTY ADDED HERE ---
-      // This is future-proof. All problems from this query are from contests.
-      source: 'Contest',
-  }));
+    .map(p => {
+      // CHANGED: Logic to check if this is from the Collection
+      // @ts-ignore
+      const contestName = p.contests?.name || '';
+      // Ensure this string matches exactly what you named your contest in the DB
+      const isCollection = contestName === 'Practice Problem Collection';
+
+      return {
+        id: p.id,
+        title: p.title,
+        difficulty: p.difficulty,
+        status: problemStatusMap.get(p.id) || 'Not Attempted',
+        // If it's from our special contest, label it Collection, else Contest
+        source: isCollection ? 'Collection' : 'Contest',
+      };
+    });
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-8 animate-fadeIn">
