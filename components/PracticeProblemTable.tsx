@@ -18,7 +18,7 @@ export default function PracticeProblemTable({ problems }: { problems: PracticeP
   // Filter States
   const [searchQuery, setSearchQuery] = useState('');
   const [difficultyFilter, setDifficultyFilter] = useState<'All' | 'Easy' | 'Medium' | 'Hard'>('All');
-  const [statusFilter, setStatusFilter] = useState<'All' | 'Solved' | 'Attempted'>('All');
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Solved' | 'Unattempted'>('All'); // 🔁 changed
   const [sourceFilter, setSourceFilter] = useState<'All' | 'Contest' | 'Collection'>('All');
 
   // ⚡ Filter Logic
@@ -28,10 +28,10 @@ export default function PracticeProblemTable({ problems }: { problems: PracticeP
       const matchesDifficulty = difficultyFilter === 'All' || p.difficulty === difficultyFilter;
       const matchesSource = sourceFilter === 'All' || p.source === sourceFilter;
 
-      // Special logic for Status Filter
+      // Status Filter
       let matchesStatus = true;
       if (statusFilter === 'Solved') matchesStatus = p.status === 'Solved';
-      if (statusFilter === 'Attempted') matchesStatus = p.status === 'Attempted';
+      if (statusFilter === 'Unattempted') matchesStatus = p.status === 'Not Attempted'; // 🔁 changed
       
       return matchesSearch && matchesDifficulty && matchesStatus && matchesSource;
     });
@@ -102,7 +102,7 @@ export default function PracticeProblemTable({ problems }: { problems: PracticeP
           {/* Status Filter */}
           <div className="flex items-center gap-2">
             <span className="text-gray-400 hidden sm:inline">Status:</span>
-            {['All', 'Solved', 'Attempted'].map((st) => (
+            {['All', 'Solved', 'Unattempted'].map((st) => ( // 🔁 label changed
               <button
                 key={st}
                 onClick={() => setStatusFilter(st as any)}
@@ -117,7 +117,7 @@ export default function PracticeProblemTable({ problems }: { problems: PracticeP
             ))}
           </div>
 
-          {/* ✅ FROM (Source) Filter - Added Back */}
+          {/* ✅ FROM (Source) Filter */}
           <div className="flex items-center gap-2">
             <span className="text-gray-400 hidden sm:inline">From:</span>
             {['All', 'Contest', 'Collection'].map((src) => (
@@ -126,7 +126,7 @@ export default function PracticeProblemTable({ problems }: { problems: PracticeP
                 onClick={() => setSourceFilter(src as any)}
                 className={`px-3 py-1 rounded-full transition-all ${
                   sourceFilter === src
-                    ? 'bg-purple-400 text-dark-bg font-semibold' // Purple to distinguish it
+                    ? 'bg-purple-400 text-dark-bg font-semibold'
                     : 'bg-dark-bg text-gray-400 hover:text-white'
                 }`}
               >
@@ -168,11 +168,13 @@ export default function PracticeProblemTable({ problems }: { problems: PracticeP
                     {problem.title}
                   </td>
                   <td className="px-6 py-4 text-center text-sm text-gray-400">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                      problem.source === 'Contest' 
-                        ? 'bg-blue-900/30 text-blue-300' 
-                        : 'bg-purple-900/30 text-purple-300'
-                    }`}>
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                        problem.source === 'Contest'
+                          ? 'bg-blue-900/30 text-blue-300'
+                          : 'bg-purple-900/30 text-purple-300'
+                      }`}
+                    >
                       {problem.source}
                     </span>
                   </td>

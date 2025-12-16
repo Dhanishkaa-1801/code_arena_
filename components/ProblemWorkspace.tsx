@@ -7,13 +7,11 @@ import { useFormState, useFormStatus } from 'react-dom';
 import { submitCode } from '@/app/actions/submissions';
 import WorkspaceTabs from './WorkspaceTabs';
 
-// Import editor modes and themes
 import 'ace-builds/src-noconflict/mode-python';
 import 'ace-builds/src-noconflict/mode-c_cpp';
 import 'ace-builds/src-noconflict/mode-java';
 import 'ace-builds/src-noconflict/theme-github_dark';
 
-// --- TYPE DEFINITIONS ---
 type Problem = Database['public']['Tables']['contest_problems']['Row'];
 type Contest = Database['public']['Tables']['contests']['Row'];
 type LastSubmission = {
@@ -21,7 +19,6 @@ type LastSubmission = {
   language: string | null;
 } | null;
 
-// This interface is strict and designed ONLY for contests.
 interface ProblemWorkspaceProps {
   problem: Problem;
   contestId: Contest['id'];
@@ -42,19 +39,23 @@ function SubmitButton({ isContestOver }: { isContestOver: boolean }) {
   );
 }
 
-export default function ProblemWorkspace({ 
-  problem, 
-  contestId, 
-  contestEndTime, 
-  lastSubmission 
+export default function ProblemWorkspace({
+  problem,
+  contestId,
+  contestEndTime,
+  lastSubmission,
 }: ProblemWorkspaceProps) {
-  
   const [code, setCode] = useState(lastSubmission?.code || '');
   const [language, setLanguage] = useState(lastSubmission?.language || 'python');
-  
-  const [submissionState, submitAction] = useFormState(submitCode, { verdict: '', error: null });
-  
-  const [isContestOver, setIsContestOver] = useState(new Date() > new Date(contestEndTime));
+
+  const [submissionState, submitAction] = useFormState(submitCode, {
+    verdict: '',
+    error: null,
+  });
+
+  const [isContestOver, setIsContestOver] = useState(
+    new Date() > new Date(contestEndTime)
+  );
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -74,54 +75,50 @@ export default function ProblemWorkspace({
 
   return (
     <div className="relative flex flex-col h-full bg-dark-bg">
-      {isContestOver && (
-        <div className="absolute inset-0 bg-dark-bg/80 z-20 flex items-center justify-center">
-          <p className="text-3xl font-bold text-red-500">Contest Has Ended</p>
-        </div>
-      )}
-
+      {/* Main content (editor + tabs + submit) */}
       <div className="flex flex-col h-full">
-        {/* Top section: Editor and language selector */}
-        <div className="flex-grow h-3/5 flex flex-col">
-          <div className="flex-shrink-0 bg-card-bg p-2 flex items-center justify-end border-b border-border-color">
-            <select
-              id="language-select"
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-              className="bg-gray-700 text-white text-sm rounded-md p-1"
-            >
-              <option value="python">Python</option>
-              <option value="cpp">C++</option>
-              <option value="java">Java</option>
-              <option value="c">C</option>
-            </select>
-          </div>
-          <div className="flex-grow relative min-h-0">
-            <AceEditor
-              mode={getEditorMode(language)}
-              theme="github_dark"
-              onChange={(newCode) => setCode(newCode)}
-              value={code}
-              name="code-editor"
-              fontSize={16}
-              width="100%"
-              height="100%"
-              setOptions={{ enableBasicAutocompletion: true, enableLiveAutocompletion: true, showPrintMargin: false }}
-              className="absolute top-0 left-0"
-            />
-          </div>
+        {/* Language selector */}
+        <div className="flex-shrink-0 bg-card-bg p-2 flex items-center justify-end border-b border-border-color">
+          <select
+            id="language-select"
+            value={language}
+            onChange={(e) => setLanguage(e.target.value as any)}
+            className="bg-gray-700 text-white text-sm rounded-md p-1"
+            disabled={false} // kept active; overlay will block interaction when contest is over
+          >
+            <option value="python">Python</option>
+            <option value="cpp">C++</option>
+            <option value="java">Java</option>
+            <option value="c">C</option>
+          </select>
         </div>
-        
-        {/* Bottom section: Tabs */}
-        <div className="flex-shrink-0 h-2/5 border-t-2 border-arena-blue">
-          <WorkspaceTabs 
-            submissionResult={submissionState}
-            code={code}
-            language={language}
+
+        {/* Editor */}
+        <div className="flex-grow relative min-h-0">
+          <AceEditor
+            mode={getEditorMode(language)}
+            theme="github_dark"
+            onChange={(newCode) => setCode(newCode)}
+            value={code}
+            name="code-editor"
+            fontSize={16}
+            width="100%"
+            height="100%"
+            setOptions={{
+              enableBasicAutocompletion: true,
+              enableLiveAutocompletion: true,
+              showPrintMargin: false,
+            }}
+            className="absolute top-0 left-0"
           />
         </div>
 
-        {/* Final action bar with the "Submit Code" form */}
+        {/* Tabs: Testcase / Result (Run Code lives here) */}
+        <div className="flex-shrink-0 h-2/5 border-t-2 border-arena-blue">
+          <WorkspaceTabs submissionResult={submissionState} code={code} language={language} />
+        </div>
+
+        {/* Submit bar */}
         <div className="flex-shrink-0 bg-card-bg p-3 border-t border-border-color">
           <form action={submitAction}>
             <input type="hidden" name="code" value={code} />
@@ -132,6 +129,15 @@ export default function ProblemWorkspace({
           </form>
         </div>
       </div>
+
+      {/* Blur overlay only when contest is over */}
+      {isContestOver && (
+        <div className="absolute inset-0 bg-dark-bg/75 backdrop-blur-sm z-20 flex items-center justify-center">
+          <p className="text-3xl font-bold text-red-400 drop-shadow-md">
+            Contest Has Ended
+          </p>
+        </div>
+      )}
     </div>
   );
 }

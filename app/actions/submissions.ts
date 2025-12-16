@@ -4,150 +4,270 @@ import { createClient } from '@/utils/supabase/server';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 
-// --- TYPE DEFINITIONS ---
+// --- TYPES ---
 export type RunCodeState = {
   verdict: string | null;
-  output: string | null;
+  stdout: string | null;
   error: string | null;
 };
+
 export type SubmissionState = { verdict?: string | null; error?: string | null };
 
-const languageIdMap: { [key: string]: number } = { python: 71, cpp: 54, java: 62, c: 50 };
+const languageIdMap: { [key: string]: number } = {
+  python: 71,
+  cpp: 54,
+  java: 62,
+  c: 50,
+};
 
-// --- "Run Code" ACTION ---
-// This function does not need any changes.
-const runCodeSchema = z.object({ code: z.string(), language: z.string(), customInput: z.string() });
+// --- HELPERS ---
+const runCodeSchema = z.object({
+  code: z.string(),
+  language: z.string(),
+  input: z.string().optional(),
+});
 
-export async function runCode(prevState: RunCodeState, formData: FormData): Promise<RunCodeState> {
-  const validated = runCodeSchema.safeParse(Object.fromEntries(formData.entries()));
-  if (!validated.success) return { verdict: 'Error', output: null, error: "Invalid input for running code." };
-  
-  const { code, language, customInput } = validated.data;
+const decodeBase64 = (value?: string | null): string | null =>
+  value ? Buffer.from(value, 'base64').toString('utf-8') : null;
+
+// --- 1. RUN CODE (TESTING ONLY) ---
+// helper already defined above
+// const decodeBase64 = (value?: string | null): string | null =>
+//   value ? Buffer.from(value, 'base64').toString('utf-8') : null;
+
+export async function runCode(payload: {
+  code: string;
+  language: string;
+  input: string;
+}): Promise<RunCodeState> {
+  const validated = runCodeSchema.safeParse(payload);
+  if (!validated.success) {
+    return { verdict: 'Error', stdout: null, error: 'Invalid input for running code.' };
+  }
+
+  const { code, language, input } = validated.data;
   const languageId = languageIdMap[language];
-  if (!languageId) return { verdict: 'Error', output: null, error: "Invalid language." };
+  if (!languageId) {
+    return { verdict: 'Error', stdout: null, error: 'Invalid language selected.' };
+  }
 
   try {
-    const response = await fetch(`${process.env.JUDGE0_API_URL}/submissions?base64_encoded=true&wait=true`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-RapidAPI-Key': process.env.JUDGE0_API_KEY!, 'X-RapidAPI-Host': 'judge0-ce.p.rapidapi.com' },
-      body: JSON.stringify({
-        source_code: Buffer.from(code).toString('base64'),
-        language_id: languageId,
-        stdin: Buffer.from(customInput).toString('base64'),
-      }),
-    });
+    const response = await fetch(
+      `${process.env.JUDGE0_API_URL}/submissions?base64_encoded=true&wait=true`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          source_code: Buffer.from(code).toString('base64'),
+          language_id: languageId,
+          stdin: Buffer.from(input || '').toString('base64'),
+        }),
+      }
+    );
 
-    if (!response.ok) throw new Error("API request to Judge0 failed.");
+    if (!response.ok) {
+      throw new Error(`Judge0 API request failed: ${response.status} ${response.statusText}`);
+    }
 
     const result = await response.json();
+    console.log('runCode raw result:', JSON.stringify(result));
+
     const statusId = result.status?.id;
     const verdict = result.status?.description || 'Error';
 
-    if (statusId === 3) { // Status 3 is "Accepted"
-      return { 
-        verdict: "Accepted",
-        output: result.stdout ? Buffer.from(result.stdout, 'base64').toString('utf-8') : '(No output was produced)',
+    const stdout = decodeBase64(result.stdout);
+    const stderr = decodeBase64(result.stderr);
+    const compileOut = decodeBase64(result.compile_output);
+    const message = decodeBase64(result.message);
+
+    // Accepted → show stdout
+    if (statusId === 3) {
+      return {
+        verdict: 'Accepted',
+        stdout: stdout ?? '(No output was produced)',
         error: null,
       };
-    } else { // Any other status is an error
-      const errorMessage = result.compile_output || result.stderr;
-      return { 
-        verdict,
-        output: null,
-        error: errorMessage ? Buffer.from(errorMessage, 'base64').toString('utf-8') : 'An unknown error occurred.',
-      };
     }
-  } catch (error: any) {
-    console.error("Run code failed:", error);
-    return { verdict: 'System Error', output: null, error: "Failed to execute code." };
+
+    // Non-accepted → build a detailed error message
+    let errorText =
+      compileOut ??
+      stderr ??
+      message ?? // <--- NOW WE USE MESSAGE TOO
+      stdout ??
+      null;
+
+    if (!errorText) {
+      const lower = verdict.toLowerCase();
+      if (lower.includes('wrong answer')) {
+        errorText =
+          'Your output did not match the expected output for the provided input.';
+      } else if (lower.includes('time limit')) {
+        errorText = 'Your program exceeded the time limit.';
+      } else if (lower.includes('internal error')) {
+        errorText =
+          'Internal error inside the judge. Please try again or contact the admin if this keeps happening.';
+      } else {
+        errorText = 'The judge reported an error but did not provide additional details.';
+      }
+    }
+
+    return {
+      verdict,
+      stdout: null,
+      error: errorText,
+    };
+  } catch (e: any) {
+    console.error('Run code failed:', e);
+    return { verdict: 'System Error', stdout: null, error: 'Failed to execute code.' };
   }
 }
 
-// --- "Submit Code" ACTION (UPDATED) ---
-// This is the main part that has been changed.
-const submissionSchema = z.object({
-  code: z.string().min(1, "Code cannot be empty."),
-  language: z.string(),
-  problemId: z.coerce.number(),
-  // CONTEST ID IS NOW OPTIONAL
-  contestId: z.coerce.number().optional().nullable(),
-});
-
-export async function submitCode(prevState: SubmissionState, formData: FormData): Promise<SubmissionState> {
+// --- 2. SUBMIT CONTEST CODE (STRICT DEADLINE) ---
+export async function submitCode(
+  prevState: SubmissionState,
+  formData: FormData
+): Promise<SubmissionState> {
   const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: 'Login required.' };
 
-  if (!user) return { error: "You must be logged in to submit." };
+  const code = formData.get('code') as string;
+  const language = formData.get('language') as string;
+  const problemId = Number(formData.get('problemId'));
+  const contestId = Number(formData.get('contestId'));
 
-  const validated = submissionSchema.safeParse(Object.fromEntries(formData.entries()));
-  if (!validated.success) return { error: "Invalid submission data." };
+  // STRICT RULE: If submitting in contest mode, contest must be active
+  const { data: contest } = await supabase
+    .from('contests')
+    .select('end_time')
+    .eq('id', contestId)
+    .single();
 
-  // contestId can now be null or undefined
-  const { code, language, problemId, contestId } = validated.data;
+  if (!contest || new Date() > new Date(contest.end_time)) {
+    return {
+      verdict: 'Error',
+      error: 'This contest has ended. Please go to the Problem Bank to practice.',
+    };
+  }
+
+  return processSubmission(user.id, problemId, contestId, code, language);
+}
+
+// --- 3. SUBMIT PRACTICE CODE (FLEXIBLE) ---
+export async function submitPracticeCode(
+  prevState: SubmissionState,
+  formData: FormData
+): Promise<SubmissionState> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: 'Login required.' };
+
+  const code = formData.get('code') as string;
+  const language = formData.get('language') as string;
+  const problemId = Number(formData.get('problemId'));
+
+  // Find which contest this problem belongs to
+  const { data: problem } = await supabase
+    .from('contest_problems')
+    .select('contest_id, contests(end_time)')
+    .eq('id', problemId)
+    .single();
+
+  const realContestId = problem?.contest_id;
+  // @ts-ignore
+  const endTime = problem?.contests?.end_time;
+
+  // If contest exists and is still live, block practice submissions
+  if (realContestId && endTime && new Date() < new Date(endTime)) {
+    return {
+      verdict: 'Error',
+      error: 'This contest is LIVE! Please submit via the Contest page.',
+    };
+  }
+
+  // Otherwise (collection or ended contest), allow submission
+  return processSubmission(user.id, problemId, realContestId || null, code, language);
+}
+
+// --- 4. SHARED HELPER: JUDGING & SAVING ---
+async function processSubmission(
+  userId: string,
+  problemId: number,
+  contestId: number | null,
+  code: string,
+  language: string
+): Promise<SubmissionState> {
+  console.log(`\n--- STARTING SUBMISSION [User: ${userId}, Problem: ${problemId}] ---`);
+
+  const supabase = createClient();
   const languageId = languageIdMap[language];
-  if (!languageId) return { error: "Invalid language selected." };
-  
+
   try {
-    // --- CONTEST-SPECIFIC LOGIC ---
-    // This block only runs if a contestId is provided.
-    if (contestId) {
-      const { data: contest, error: contestError } = await supabase
-        .from('contests')
-        .select('end_time')
-        .eq('id', contestId)
-        .single();
+    // A. Fetch Test Cases
+    const { data: testCases, error: tcError } = await supabase
+      .from('problem_test_cases')
+      .select('input, expected_output')
+      .eq('problem_id', problemId);
 
-      if (contestError || !contest) {
-        throw new Error("Contest not found.");
-      }
+    if (tcError) console.error('❌ Test Case DB Error:', tcError);
+    if (!testCases?.length) throw new Error('No test cases found.');
 
-      if (new Date() > new Date(contest.end_time)) {
-        return { verdict: 'Error', error: "The contest has already ended. Submissions are closed." };
-      }
-    }
+    console.log(`✅ Found ${testCases.length} test cases.`);
 
-    // --- The rest of the logic is now generic and works for both modes ---
-
-    const { data: testCases, error: testCaseError } = await supabase.from('problem_test_cases').select('input, expected_output').eq('problem_id', problemId);
-    if (testCaseError || !testCases || testCases.length === 0) throw new Error("Could not find test cases for this problem.");
-    
-    const judge0Submissions = testCases.map(tc => ({
+    // B. Send to Judge0 (Batch)
+    console.log('🚀 Sending to Judge0...');
+    const judge0Submissions = testCases.map((tc) => ({
       source_code: Buffer.from(code).toString('base64'),
       language_id: languageId,
       stdin: Buffer.from(tc.input || '').toString('base64'),
       expected_output: Buffer.from(tc.expected_output || '').toString('base64'),
     }));
 
-    const response = await fetch(`${process.env.JUDGE0_API_URL}/submissions/batch?base64_encoded=true`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-RapidAPI-Key': process.env.JUDGE0_API_KEY!, 'X-RapidAPI-Host': 'judge0-ce.p.rapidapi.com' },
-      body: JSON.stringify({ submissions: judge0Submissions }),
-    });
+    const response = await fetch(
+      `${process.env.JUDGE0_API_URL}/submissions/batch?base64_encoded=true`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ submissions: judge0Submissions }),
+      }
+    );
 
-    if (!response.ok) throw new Error(`Judge0 API request failed: ${response.statusText}`);
+    if (!response.ok) {
+      throw new Error(`Judge0 batch request failed: ${response.status} ${response.statusText}`);
+    }
 
     const tokens = await response.json();
-    if (!Array.isArray(tokens) || tokens.length === 0) {
-        throw new Error("Judge0 did not return submission tokens.");
-    }
-    const tokenParams = tokens.map((t: { token: string }) => t.token).join(',');
+    if (!tokens || !tokens.length) throw new Error('Judge API Error (No tokens returned)');
 
+    const tokenStr = tokens.map((t: any) => t.token).join(',');
+
+    // C. Poll for Results
     let results;
-    
-    // Polling logic
+    console.log('⏳ Polling Judge0...');
     while (true) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        const resultsResponse = await fetch(`${process.env.JUDGE0_API_URL}/submissions/batch?tokens=${tokenParams}&base64_encoded=true&fields=status_id,status,time,memory,compile_output,stderr`, {
-            headers: { 'X-RapidAPI-Key': process.env.JUDGE0_API_KEY!, 'X-RapidAPI-Host': 'judge0-ce.p.rapidapi.com' }
-        });
-        results = await resultsResponse.json();
-        const isProcessing = results.submissions.some((res: any) => res.status_id === 1 || res.status_id === 2);
-        if (!isProcessing) break;
+      await new Promise((r) => setTimeout(r, 2000));
+      const res = await fetch(
+        `${process.env.JUDGE0_API_URL}/submissions/batch?tokens=${tokenStr}&base64_encoded=true&fields=status_id,status,time,memory,compile_output,stderr`
+      );
+
+      if (!res.ok) {
+        throw new Error(`Judge0 poll request failed: ${res.status} ${res.statusText}`);
+      }
+
+      results = await res.json();
+      if (!results.submissions.some((s: any) => s.status_id === 1 || s.status_id === 2)) break;
     }
-    
-    // Result aggregation logic
+
+    // D. Calculate Verdict
     let finalVerdict = 'Accepted';
-    let detailedError = null;
+    let detailedError: string | null = null;
     let totalTime = 0;
     let maxMemory = 0;
 
@@ -156,114 +276,72 @@ export async function submitCode(prevState: SubmissionState, formData: FormData)
       maxMemory = Math.max(maxMemory, result.memory || 0);
 
       if (result.status_id !== 3) {
-          finalVerdict = result.status.description;
-          detailedError = result.compile_output || result.stderr;
-          break;
+        const desc = result.status?.description || 'Error';
+        finalVerdict = desc;
+
+        const compileOut = decodeBase64(result.compile_output);
+        const stderr = decodeBase64(result.stderr);
+
+        if (compileOut) {
+          detailedError = compileOut;
+        } else if (stderr) {
+          detailedError = stderr;
+        } else if (desc.toLowerCase().includes('wrong answer')) {
+          detailedError =
+            'Your output did not match the expected output on at least one test case.';
+        } else if (desc.toLowerCase().includes('time limit')) {
+          detailedError =
+            'Your program exceeded the time limit on at least one test case.';
+        } else {
+          detailedError = 'The judge reported an error but did not provide details.';
+        }
+
+        break;
       }
     }
 
-    // --- SAVE SUBMISSION (Now handles null contest_id) ---
-    const { error: insertError } = await supabase.from('submissions').insert({
-      user_id: user.id, 
-      contest_id: contestId, // This will be null for practice problems, which is correct
-      problem_id: problemId, 
-      code: code, 
-      language_id: languageId, 
-      language: language, 
-      verdict: finalVerdict, 
-      execution_time: totalTime, 
+    // E. INSERT INTO DB
+    console.log('💾 Attempting DB Insert...');
+    const payload = {
+      user_id: userId,
+      contest_id: contestId,
+      problem_id: problemId,
+      code,
+      language,
+      language_id: languageId,
+      verdict: finalVerdict,
+      execution_time: totalTime,
       memory: maxMemory,
-    });
+    };
+
+    const { data: insertedData, error: insertError } = await supabase
+      .from('submissions')
+      .insert(payload)
+      .select()
+      .single();
 
     if (insertError) {
-        console.error("Error saving submission:", insertError);
-        throw new Error("Failed to save your submission result.");
+      console.error('❌ DB INSERT FAILED. REASON:', insertError);
+      console.error('Payload was:', JSON.stringify(payload));
+      throw new Error('Database refused the submission: ' + insertError.message);
     }
 
-    // --- REVALIDATE PATHS (Conditional) ---
-    if (contestId) {
-      revalidatePath(`/contests/${contestId}/leaderboard`);
-    }
-    // Always revalidate the problem bank to update the status icon
-    revalidatePath('/problems');
-    revalidatePath(`/problems/${problemId}`); // Also revalidate the specific problem page
+    console.log('✅ DB INSERT SUCCESS. New Submission ID:', insertedData.id);
 
-    return { 
-      verdict: finalVerdict,
-      error: detailedError ? Buffer.from(detailedError, 'base64').toString('utf-8') : null 
-    };
-
-  } catch (error: any) {
-    console.error("Submission processing failed:", error);
-    return { error: error.message || "An unexpected error occurred during submission." };
-  }
-}
-
-// ... (keep your existing runCode and submitCode functions at the top of the file)
-
-// --- NEW "Submit Practice Code" ACTION ---
-// This action is ONLY for the practice zone. It does not handle contests.
-
-const practiceSubmissionSchema = z.object({
-  code: z.string().min(1, "Code cannot be empty."),
-  language: z.string(),
-  problemId: z.coerce.number(),
-});
-
-export async function submitPracticeCode(prevState: SubmissionState, formData: FormData): Promise<SubmissionState> {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) return { error: "You must be logged in to submit." };
-
-  const validated = practiceSubmissionSchema.safeParse(Object.fromEntries(formData.entries()));
-  if (!validated.success) return { error: "Invalid submission data." };
-
-  const { code, language, problemId } = validated.data;
-  const languageId = languageIdMap[language];
-  if (!languageId) return { error: "Invalid language selected." };
-  
-  try {
-    // No contest deadline check needed for practice mode.
-
-    const { data: testCases, error: testCaseError } = await supabase.from('problem_test_cases').select('input, expected_output').eq('problem_id', problemId);
-    if (testCaseError || !testCases || testCases.length === 0) throw new Error("Could not find test cases for this problem.");
-    
-    // The Judge0 logic is identical to your original submitCode function.
-    // ... (Your full Judge0 batch submission and polling logic goes here) ...
-    // ...
-    const finalVerdict = 'Accepted'; // Placeholder for your logic
-    const totalTime = 0.1; // Placeholder for your logic
-    const maxMemory = 1024; // Placeholder for your logic
-    let detailedError = null; // Placeholder for your logic
-
-    // Save submission with contest_id explicitly as null.
-    const { error: insertError } = await supabase.from('submissions').insert({
-      user_id: user.id, 
-      contest_id: null, // Always null for practice submissions
-      problem_id: problemId, 
-      code: code, 
-      language_id: languageId, 
-      language: language, 
-      verdict: finalVerdict, 
-      execution_time: totalTime, 
-      memory: maxMemory,
-    });
-
-    if (insertError) throw new Error("Failed to save your submission result.");
-
-    // Revalidate paths to update the UI
+    // F. Update UI
     revalidatePath('/problems');
     revalidatePath(`/problems/${problemId}`);
+    revalidatePath(`/profile/${userId}`);
+    if (contestId) revalidatePath(`/contests/${contestId}/leaderboard`);
 
-    return { 
+    console.log('--- SUBMISSION COMPLETE ---\n');
+
+    return {
       verdict: finalVerdict,
-      error: detailedError
+      error: detailedError,
     };
-
-  } catch (error: any) {
-    console.error("Practice submission failed:", error);
-    return { error: error.message || "An unexpected error occurred." };
+  } catch (err: any) {
+    console.error('❌ Submission Workflow Failed:', err);
+    return { error: err.message || 'Submission failed.' };
   }
 }
-

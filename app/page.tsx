@@ -1,5 +1,6 @@
-// app/page.tsx
 import Link from 'next/link';
+import { createClient } from '@/utils/supabase/server';
+import { redirect } from 'next/navigation';
 
 function PublicHeader() {
   return (
@@ -15,7 +16,25 @@ function PublicHeader() {
   );
 }
 
-export default function HomePage() {
+export default async function HomePage() {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // Immediate Redirection Logic
+  if (user) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    if (profile?.role === 'admin') {
+      redirect('/admin/contests');
+    } else {
+      redirect('/contests');
+    }
+  }
+
   return (
     <div className="relative flex flex-col items-center justify-center min-h-screen bg-dark-bg text-white overflow-hidden">
       <div className="absolute inset-0 bg-arena-gradient opacity-60"></div>

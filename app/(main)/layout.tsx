@@ -5,13 +5,20 @@ export default async function MainLayout({ children }: { children: React.ReactNo
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
+  // Fetch role to see if we should show the "Admin Dashboard" button
+  let userRole = 'student';
+  if (user) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+    if (profile) userRole = profile.role;
+  }
+
   return (
     <>
-      <Header user={user} />
-      {/* 
-         UPDATED: Removed "max-w-[1400px] mx-auto px-4 sm:px-8 py-6"
-         We changed this to "w-full" so the Workspace can take up the full screen.
-      */}
+      <Header user={user} userRole={userRole} />
       <main className="w-full">
         {children}
       </main>

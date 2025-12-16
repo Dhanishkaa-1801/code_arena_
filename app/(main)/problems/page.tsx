@@ -4,60 +4,86 @@ import { createClient } from '@/utils/supabase/server';
 import PracticeProblemTable from '@/components/PracticeProblemTable';
 import type { PracticeProblem } from '@/components/PracticeProblemTable';
 
+// We force the page to be dynamic so it fetches fresh data (and the green tick) on every load
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function ProblemBankPage() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  // 1. Fetch problems from finished contests
-  // CHANGED: Added 'name' to the select so we can detect the Collection contest
-  const { data: problems, error: problemsError } = await supabase
+  if (!user) {
+    return <p className="text-center p-8 text-gray-400">Please log in to view the problem bank.</p>;
+  }
+
+  // 1. Fetch all problems that are available for practice
+  // We join with the 'contests' table to check the end_time and get the name
+  const { data: rawProblems, error: problemsError } = await supabase
     .from('contest_problems')
-    .select(`id, title, difficulty, contests ( name, end_time )`)
+    .select(`
+      id, 
+      title, 
+      difficulty, 
+      contests!inner (
+        name,
+        end_time
+      )
+    `)
     .eq('is_practice_available', true)
-    .lt('contests.end_time', new Date().toISOString())
+    .lt('contests.end_time', new Date().toISOString()) // Only show problems from ended contests
     .order('id', { ascending: true });
 
   if (problemsError) {
-    console.error("Error fetching practice problems:", problemsError);
+    console.error("Error fetching problems:", problemsError);
     return <p className="text-center text-red-500">Could not load practice problems.</p>;
   }
 
-  // 2. Fetch user submissions to determine status
-  const problemStatusMap = new Map<number, 'Solved' | 'Attempted'>();
-  if (user) {
-    const { data: subs } = await supabase.from('submissions').select('problem_id, verdict').eq('user_id', user.id);
-    if (subs) {
-      for (const sub of subs) {
-        if (sub.verdict === 'Accepted') {
-          problemStatusMap.set(sub.problem_id, 'Solved');
-        } else if (!problemStatusMap.has(sub.problem_id)) {
-          problemStatusMap.set(sub.problem_id, 'Attempted');
-        }
-      }
-    }
+  // 2. Fetch the user's submissions to calculate status (Solved/Attempted)
+  const { data: userSubmissions, error: submissionsError } = await supabase
+    .from('submissions')
+    .select('problem_id, verdict')
+    .eq('user_id', user.id);
+
+  if (submissionsError) {
+    console.error("Error fetching submissions:", submissionsError);
+    // We don't block the page, we just assume "Not Attempted" if this fails
   }
 
-  // 3. Combine all data into the final list for the UI
-  const practiceProblems: PracticeProblem[] = (problems || [])
-    .filter(p => p.contests)
-    .map(p => {
-      // CHANGED: Logic to check if this is from the Collection
-      // @ts-ignore
-      const contestName = p.contests?.name || '';
-      // Ensure this string matches exactly what you named your contest in the DB
-      const isCollection = contestName === 'Practice Problem Collection';
+  // 3. Create a map for fast lookup of submission status
+  // Map Key: problemId -> Value: 'Solved' | 'Attempted'
+  const submissionMap = new Map<number, string>();
 
-      return {
-        id: p.id,
-        title: p.title,
-        difficulty: p.difficulty,
-        status: problemStatusMap.get(p.id) || 'Not Attempted',
-        // If it's from our special contest, label it Collection, else Contest
-        source: isCollection ? 'Collection' : 'Contest',
-      };
+  if (userSubmissions) {
+    userSubmissions.forEach(sub => {
+      const currentStatus = submissionMap.get(sub.problem_id);
+      
+      // If we already marked it as Solved, leave it as Solved
+      if (currentStatus === 'Solved') return;
+
+      if (sub.verdict === 'Accepted') {
+        submissionMap.set(sub.problem_id, 'Solved');
+      } else {
+        // If it's not Accepted, mark as Attempted (unless already Solved)
+        submissionMap.set(sub.problem_id, 'Attempted');
+      }
     });
+  }
+
+  // 4. Merge data to create the final array for the UI
+  const practiceProblems: PracticeProblem[] = (rawProblems || []).map((p: any) => {
+    // Check our map to see if the user touched this problem
+    const status = submissionMap.get(p.id) || 'Not Attempted';
+    
+    return {
+      id: p.id,
+      title: p.title,
+      difficulty: p.difficulty,
+      status: status, // This will be 'Solved', 'Attempted', or 'Not Attempted'
+      source: p.contests?.name === 'Practice Problem Collection' 
+        ? 'Collection' 
+        : 'Contest',
+    };
+  });
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-8 animate-fadeIn">

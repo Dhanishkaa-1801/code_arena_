@@ -1,12 +1,11 @@
-// In: components/WorkspaceTabs.tsx
 'use client';
 
-import { useState } from 'react';
-import { useFormState, useFormStatus } from 'react-dom';
+import { useState, useTransition } from 'react';
 import { runCode } from '@/app/actions/submissions';
 import { type SubmissionState, type RunCodeState } from '@/app/actions/submissions';
 
-const TABS = ['Testcase', 'Result'];
+const TABS = ['Testcase', 'Result'] as const;
+type Tab = (typeof TABS)[number];
 
 interface WorkspaceTabsProps {
   submissionResult: SubmissionState;
@@ -14,122 +13,168 @@ interface WorkspaceTabsProps {
   language: string;
 }
 
-function RunButton() {
-    const { pending } = useFormStatus();
-    return (
-        <button 
-            type="submit" 
-            disabled={pending}
-            className="px-4 py-2 bg-gradient-to-r from-arena-pink to-arena-blue text-dark-bg font-bold rounded-md hover:opacity-90 transition-opacity disabled:opacity-50"
-        >
-            {pending ? 'Running...' : 'Run Code'}
-        </button>
-    );
-}
-
 export default function WorkspaceTabs({ submissionResult, code, language }: WorkspaceTabsProps) {
-  const [activeTab, setActiveTab] = useState(TABS[0]);
+  const [activeTab, setActiveTab] = useState<Tab>('Testcase');
   const [customInput, setCustomInput] = useState('');
   
-  const initialState: RunCodeState = { verdict: null, output: null, error: null };
-  const [runState, runAction] = useFormState(runCode, initialState);
+  const [runResult, setRunResult] = useState<RunCodeState | null>(null);
+  const [isRunning, startTransition] = useTransition();
 
-  // Automatically switch to the Result tab when an official submission completes
-  if (submissionResult.verdict && submissionResult.verdict !== 'Processing...' && activeTab !== 'Result') {
-    setActiveTab('Result');
-  }
+  const handleRunCode = () => {
+    startTransition(async () => {
+      const result = await runCode({
+        code,
+        language,
+        input: customInput,
+      });
+      setRunResult(result);
+      // stay on Testcase tab – user controls switching manually
+    });
+  };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-dark-bg text-sm">
       {/* Tab Headers */}
-      <div className="flex-shrink-0 border-b border-border-color">
+      <div className="flex-shrink-0 border-b border-border-color flex bg-card-bg">
         {TABS.map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 text-sm font-medium ${activeTab === tab ? 'text-white border-b-2 border-arena-pink' : 'text-gray-400 hover:text-white'}`}
+            className={`px-4 py-2 font-medium transition-colors ${
+              activeTab === tab 
+                ? 'text-white border-b-2 border-arena-pink bg-white/5' 
+                : 'text-gray-400 hover:text-white hover:bg-white/5'
+            }`}
           >
             {tab}
           </button>
         ))}
       </div>
 
-      {/* Testcase Tab */}
-      {activeTab === 'Testcase' && (
-        <form action={runAction} className="flex-1 flex flex-col min-h-0 bg-dark-bg">
-          <div className="flex-grow p-4 overflow-y-auto space-y-4">
-            <input type="hidden" name="code" value={code} />
-            <input type="hidden" name="language" value={language} />
-            
-            <div>
-              <label htmlFor="custom-input" className="text-gray-300 mb-2 block font-sans">Input</label>
-              <textarea
-                id="custom-input"
-                name="customInput"
-                value={customInput}
-                onChange={(e) => setCustomInput(e.target.value)}
-                placeholder="Enter custom input to test your code..."
-                className="w-full h-24 bg-card-bg border border-border-color rounded-md p-2 text-white resize-none font-mono"
-              />
-            </div>
-            
-            {/* --- FINALIZED DISPLAY LOGIC (v2) --- */}
-            {/* This logic now pivots on the verdict, not the error field. */}
-            {runState.verdict && (
-              <>
-                {/* If the verdict is "Accepted", ALWAYS show the success block. */}
-                {runState.verdict === 'Accepted' ? (
-                  <div>
-                    <label className="text-gray-300 mb-2 block font-sans">Output</label>
-                    <div className="w-full bg-card-bg border border-border-color rounded-md p-2">
-                      <pre className="text-white whitespace-pre-wrap">
-                        {runState.output}
+      {/* Content Area */}
+      <div className="flex-grow flex flex-col min-h-0 relative">
+        
+        {/* === TESTCASE TAB (Run Code) === */}
+        {activeTab === 'Testcase' && (
+          <div className="flex flex-col h-full">
+            <div className="flex-grow overflow-y-auto p-4 space-y-4">
+              {/* Input Area */}
+              <div>
+                <label
+                  htmlFor="custom-input"
+                  className="text-gray-400 mb-1 block text-xs uppercase tracking-wide"
+                >
+                  Custom Input
+                </label>
+                <textarea
+                  id="custom-input"
+                  value={customInput}
+                  onChange={(e) => setCustomInput(e.target.value)}
+                  placeholder="Enter input here..."
+                  className="w-full h-24 bg-black/30 border border-border-color rounded p-3 text-white font-mono resize-none focus:border-arena-pink focus:outline-none transition-colors"
+                />
+              </div>
+
+              {/* Output Display */}
+              {runResult && (
+                <div className="animate-fadeIn">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-gray-400 text-xs uppercase tracking-wide">
+                      Output
+                    </label>
+                    <span
+                      className={`text-xs font-bold ${
+                        runResult.verdict === 'Accepted'
+                          ? 'text-green-400'
+                          : 'text-red-400'
+                      }`}
+                    >
+                      {runResult.verdict === 'Accepted'
+                        ? 'Execution Finished'
+                        : runResult.verdict}
+                    </span>
+                  </div>
+
+                  {runResult.stdout && (
+                    <div className="w-full bg-black/30 border border-border-color rounded p-3 mb-2">
+                      <pre className="text-white font-mono whitespace-pre-wrap text-sm">
+                        {runResult.stdout}
                       </pre>
-                      <p className="mt-2 text-sm text-arena-green font-semibold font-sans">
-                        Execution Finished (Accepted)
-                      </p>
                     </div>
-                  </div>
-                ) : (
-                  /* For any other verdict, show the error block. */
-                  <div>
-                    <label className="text-gray-300 mb-2 block font-sans">Error: <span className="text-red-400">{runState.verdict}</span></label>
-                    <pre className="w-full bg-red-900/20 border border-red-500/50 rounded-md p-2 text-red-300 whitespace-pre-wrap">
-                      {runState.error}
-                    </pre>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
+                  )}
 
-          {/* Action Bar at the bottom */}
-          <div className="flex-shrink-0 p-3 flex justify-end border-t border-border-color">
-            <RunButton />
-          </div>
-        </form>
-      )}
-
-      {/* Result Tab (for official submissions) */}
-      {activeTab === 'Result' && (
-        <div className="flex-grow p-4 overflow-y-auto bg-dark-bg font-mono text-sm">
-          {submissionResult.verdict === 'Accepted' ? (
-            <div className="text-arena-green">
-              <span className="font-bold text-lg">Accepted</span>
-              <p className="text-gray-400 text-sm mt-1 font-sans">Your solution passed all hidden test cases.</p>
-            </div>
-          ) : submissionResult.verdict && submissionResult.verdict !== 'Processing...' ? (
-            <div className="text-red-400">
-              <span className="font-bold text-lg">{submissionResult.verdict}</span>
-              {submissionResult.error && (
-                <pre className="mt-4 p-4 bg-card-bg rounded-md text-red-300 whitespace-pre-wrap">{submissionResult.error}</pre>
+                  {runResult.error && (
+                    <div className="w-full bg-red-900/20 border border-red-500/30 rounded p-3">
+                      <pre className="text-red-300 font-mono whitespace-pre-wrap text-xs">
+                        {runResult.error}
+                      </pre>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
-          ) : (
-            <p className="text-gray-500 font-sans">Submit your code to see the official result.</p>
-          )}
-        </div>
-      )}
+
+            {/* Run Button Footer */}
+            <div className="flex-shrink-0 p-3 border-t border-border-color flex justify-end bg-card-bg/50">
+              <button
+                onClick={handleRunCode}
+                disabled={isRunning || !code.trim()}
+                className="px-5 py-2 bg-gradient-to-r from-arena-pink to-arena-blue text-dark-bg font-bold rounded hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-arena-pink/20"
+              >
+                {isRunning ? (
+                  <span className="flex items-center gap-2">
+                    <span className="w-4 h-4 border-2 border-dark-bg border-t-transparent rounded-full animate-spin" />
+                    Running...
+                  </span>
+                ) : (
+                  'Run Code'
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* === RESULT TAB (Submit Code) === */}
+        {activeTab === 'Result' && (
+          <div className="flex-grow overflow-y-auto p-6 bg-dark-bg">
+            {submissionResult.verdict ? (
+              <div className="animate-slideUp">
+                {submissionResult.verdict === 'Accepted' ? (
+                  <div className="flex flex-col items-center justify-center text-center space-y-4 mt-8">
+                    <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center text-green-500 text-3xl mb-2">
+                      ✓
+                    </div>
+                    <h2 className="text-2xl font-bold text-white">Problem Solved!</h2>
+                    <p className="text-gray-400 max-w-sm">
+                      Congratulations! Your solution passed all test cases.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3 text-red-500 mb-4">
+                      <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center text-lg font-bold">
+                        ✕
+                      </div>
+                      <h2 className="text-xl font-bold">{submissionResult.verdict}</h2>
+                    </div>
+
+                    {submissionResult.error && (
+                      <div className="bg-red-950/30 border border-red-900/50 rounded-lg p-4 font-mono text-sm text-red-200 whitespace-pre-wrap overflow-x-auto">
+                        {submissionResult.error}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-gray-500 space-y-3">
+                <div className="text-4xl opacity-20">⚖️</div>
+                <p>Submit your code to see the official verdict.</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

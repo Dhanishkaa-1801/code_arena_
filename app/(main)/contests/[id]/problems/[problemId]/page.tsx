@@ -5,8 +5,8 @@ import { Database } from '@/types_db';
 
 type Problem = Database['public']['Tables']['contest_problems']['Row'];
 
-// The component that displays the problem details on the left panel (Expanded padding and font sizes)
-function ProblemDetails({ problem, index }: { problem: Problem, index: number }) {
+// Left panel: problem details
+function ProblemDetails({ problem, index }: { problem: Problem; index: number }) {
   const difficultyStyles = {
     Easy: 'bg-green-500/20 text-green-300',
     Medium: 'bg-yellow-500/20 text-yellow-300',
@@ -16,29 +16,53 @@ function ProblemDetails({ problem, index }: { problem: Problem, index: number })
   const problemLetter = String.fromCharCode(65 + index);
 
   return (
-    <div className="p-8 text-gray-300"> {/* Increased padding from p-6 to p-8 */}
-      <h1 className="text-3xl font-bold text-white mb-6"> {/* Increased font from 2xl to 3xl, mb-4 to mb-6 */}
+    <div className="p-8 text-gray-300">
+      <h1 className="text-3xl font-bold text-white mb-6">
         {`${problemLetter}. ${problem.title}`}
       </h1>
-      
-      <div className="flex items-center gap-4 mb-8 pb-8 border-b border-border-color"> {/* Increased mb-6 to mb-8, pb-6 to pb-8 */}
-        <span className={`px-4 py-2 text-sm font-semibold rounded-full ${difficultyStyles[problem.difficulty] || 'bg-gray-500/20'}`}>{problem.difficulty}</span> {/* Increased px-3 to px-4, py-1 to py-2 */}
+
+      <div className="flex items-center gap-4 mb-8 pb-8 border-b border-border-color">
+        <span
+          className={`px-4 py-2 text-sm font-semibold rounded-full ${
+            difficultyStyles[problem.difficulty] || 'bg-gray-500/20'
+          }`}
+        >
+          {problem.difficulty}
+        </span>
       </div>
 
-      <div className="prose prose-invert max-w-none prose-lg"> {/* Added prose-lg for larger text */}
-        <h2 className="text-xl font-semibold text-white !mb-4">Problem Description</h2> {/* Increased to xl */}
-        <div className="text-gray-300" dangerouslySetInnerHTML={{ __html: problem.description || '<p>No description provided.</p>' }} />
-        
-        <h2 className="text-xl font-semibold text-white !mt-10 !mb-4">Sample Input</h2> {/* Increased to xl, mt-8 to mt-10 */}
-        <pre className="bg-dark-bg p-6 rounded-md text-gray-200 !mt-0"><code>{problem.sample_input || 'N/A'}</code></pre> {/* Increased p-4 to p-6 */}
-        
-        <h2 className="text-xl font-semibold text-white !mt-8 !mb-4">Sample Output</h2> {/* Increased to xl */}
-        <pre className="bg-dark-bg p-6 rounded-md text-gray-200 !mt-0"><code>{problem.sample_output || 'N/A'}</code></pre> {/* Increased p-4 to p-6 */}
-        
+      <div className="prose prose-invert max-w-none prose-lg">
+        <h2 className="text-xl font-semibold text-white !mb-4">Problem Description</h2>
+        <div
+          className="text-gray-300"
+          dangerouslySetInnerHTML={{
+            __html: problem.description || '<p>No description provided.</p>',
+          }}
+        />
+
+        <h2 className="text-xl font-semibold text-white !mt-10 !mb-4">
+          Sample Input
+        </h2>
+        <pre className="bg-dark-bg p-6 rounded-md text-gray-200 !mt-0">
+          <code>{problem.sample_input || 'N/A'}</code>
+        </pre>
+
+        <h2 className="text-xl font-semibold text-white !mt-8 !mb-4">
+          Sample Output
+        </h2>
+        <pre className="bg-dark-bg p-6 rounded-md text-gray-200 !mt-0">
+          <code>{problem.sample_output || 'N/A'}</code>
+        </pre>
+
         {problem.constraints && (
           <>
-            <h2 className="text-xl font-semibold text-white !mt-8 !mb-4">Constraints</h2> {/* Increased to xl */}
-            <div className="text-gray-300" dangerouslySetInnerHTML={{ __html: problem.constraints }}/>
+            <h2 className="text-xl font-semibold text-white !mt-8 !mb-4">
+              Constraints
+            </h2>
+            <div
+              className="text-gray-300"
+              dangerouslySetInnerHTML={{ __html: problem.constraints }}
+            />
           </>
         )}
       </div>
@@ -46,29 +70,48 @@ function ProblemDetails({ problem, index }: { problem: Problem, index: number })
   );
 }
 
-export default async function ProblemPage({ 
-  params, 
-  searchParams 
-}: { 
-  params: { id: string, problemId: string },
-  searchParams: { index?: string }
+export default async function ProblemPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string; problemId: string };
+  searchParams: { index?: string };
 }) {
   const supabase = createClient();
   const contestId = Number(params.id);
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  const problemPromise = supabase.from('contest_problems').select('*').eq('id', params.problemId).single();
-  const contestPromise = supabase.from('contests').select('end_time').eq('id', contestId).single();
-  const lastSubmissionPromise = user 
-    ? supabase.from('submissions').select('code, language').eq('user_id', user.id).eq('problem_id', params.problemId).order('submitted_at', { ascending: false }).limit(1).maybeSingle() 
+  const problemPromise = supabase
+    .from('contest_problems')
+    .select('*')
+    .eq('id', params.problemId)
+    .single();
+
+  const contestPromise = supabase
+    .from('contests')
+    .select('end_time')
+    .eq('id', contestId)
+    .single();
+
+  const lastSubmissionPromise = user
+    ? supabase
+        .from('submissions')
+        .select('code, language')
+        .eq('user_id', user.id)
+        .eq('problem_id', params.problemId)
+        .order('submitted_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
     : Promise.resolve({ data: null, error: null });
 
   const [
-    { data: problem, error: problemError }, 
+    { data: problem, error: problemError },
     { data: contest, error: contestError },
-    { data: lastSubmission, error: submissionError }
+    { data: lastSubmission },
   ] = await Promise.all([problemPromise, contestPromise, lastSubmissionPromise]);
-    
+
   if (problemError || contestError || !problem || !contest) {
     notFound();
   }
@@ -76,18 +119,21 @@ export default async function ProblemPage({
   const problemIndex = Number(searchParams.index || 0);
 
   return (
-    <main className="p-0 h-[calc(100vh-70px)] bg-dark-bg"> {/* Expanded: Removed all padding to stretch to edges */}
-      <div className="flex h-full w-full rounded-none border-2 border-arena-blue overflow-hidden"> {/* Expanded: Removed rounded-lg, made full size */}
-        <div className="w-1/2 overflow-y-auto bg-card-bg border-r border-border-color">
-          <ProblemDetails problem={problem} index={problemIndex} />
-        </div>
-        <div className="w-1/2 flex flex-col bg-dark-bg">
-          <ProblemWorkspace
-            problem={problem}
-            contestId={contestId}
-            contestEndTime={contest.end_time}
-            lastSubmission={lastSubmission}
-          />
+    <main className="p-4 sm:p-8 h-[calc(100vh-70px)] bg-dark-bg">
+      {/* Match practice layout: center + max width */}
+      <div className="max-w-screen-2xl mx-auto h-full">
+        <div className="flex h-full w-full rounded-lg border-2 border-arena-blue overflow-hidden shadow-2xl shadow-arena-blue/10">
+          <div className="w-1/2 overflow-y-auto bg-card-bg border-r border-border-color">
+            <ProblemDetails problem={problem} index={problemIndex} />
+          </div>
+          <div className="w-1/2 flex flex-col bg-dark-bg">
+            <ProblemWorkspace
+              problem={problem}
+              contestId={contestId}
+              contestEndTime={contest.end_time}
+              lastSubmission={lastSubmission}
+            />
+          </div>
         </div>
       </div>
     </main>
