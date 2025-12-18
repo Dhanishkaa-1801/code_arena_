@@ -1,6 +1,17 @@
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/server';
 
+const formatIST = (dateStr: string) =>
+  new Date(dateStr).toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+
 export default async function ViewContestsPage() {
   const supabase = createClient();
   const { data: contests, error } = await supabase
@@ -9,7 +20,7 @@ export default async function ViewContestsPage() {
     .order('start_time', { ascending: false });
 
   if (error) {
-    console.error("Error fetching contests:", error);
+    console.error('Error fetching contests:', error);
     return <p className="text-red-500">Could not fetch contests.</p>;
   }
 
@@ -17,36 +28,54 @@ export default async function ViewContestsPage() {
     <div>
       <div className="flex justify-between items-center mb-8">
         <h2 className="text-3xl font-bold">All Contests</h2>
-        <Link href="/admin/host" className="py-2 px-4 bg-gradient-to-r from-arena-pink to-arena-blue text-dark-bg font-bold rounded-md">
+        <Link
+          href="/admin/host"
+          className="py-2 px-4 bg-gradient-to-r from-arena-pink to-arena-blue text-dark-bg font-bold rounded-md"
+        >
           + Host New Contest
         </Link>
       </div>
 
       <div className="bg-card-bg border border-border-color rounded-lg">
         <ul className="divide-y divide-border-color">
-          {contests.length > 0 ? contests.map(contest => (
-            <li key={contest.id} className="p-4 flex flex-col sm:flex-row justify-between sm:items-center hover:bg-slate-800 transition-colors">
-              <div className="mb-2 sm:mb-0">
-                <p className="font-bold text-lg text-gray-100">{contest.name}</p>
-                <div className="flex flex-wrap space-x-4 text-sm text-gray-400 mt-1">
-                  <span>Starts: {new Date(contest.start_time).toLocaleString()}</span>
-                  <span>Ends: {new Date(contest.end_time).toLocaleString()}</span>
+          {contests.length > 0 ? (
+            contests.map((contest) => (
+              <li
+                key={contest.id}
+                className="p-4 flex flex-col sm:flex-row justify-between sm:items-center hover:bg-slate-800 transition-colors"
+              >
+                <div className="mb-2 sm:mb-0">
+                  <p className="font-bold text-lg text-gray-100">{contest.name}</p>
+                  <div className="flex flex-wrap space-x-4 text-sm text-gray-400 mt-1">
+                    <span>Starts: {formatIST(contest.start_time)}</span>
+                    <span>Ends: {formatIST(contest.end_time)}</span>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center space-x-4">
-                 {/* --- NEW LINK ADDED HERE --- */}
-                 <Link href={`/contests/${contest.id}/leaderboard`} className="text-arena-mint font-semibold hover:underline" target="_blank" rel="noopener noreferrer">
+                <div className="flex items-center space-x-4">
+                  <Link
+                    href={`/contests/${contest.id}/leaderboard`}
+                    className="text-arena-mint font-semibold hover:underline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
                     View Results
-                 </Link>
-                 <Link href={`/admin/contests/${contest.id}`} className="text-arena-pink font-semibold hover:underline">
+                  </Link>
+                  <Link
+                    href={`/admin/contests/${contest.id}`}
+                    className="text-arena-pink font-semibold hover:underline"
+                  >
                     Manage Problems
-                 </Link>
-              </div>
-            </li>
-          )) : (
+                  </Link>
+                </div>
+              </li>
+            ))
+          ) : (
             <div className="p-8 text-center text-gray-400">
               <p>No contests have been created yet.</p>
-              <Link href="/admin/host" className="mt-4 inline-block text-arena-blue hover:underline">
+              <Link
+                href="/admin/host"
+                className="mt-4 inline-block text-arena-blue hover:underline"
+              >
                 Host your first contest!
               </Link>
             </div>
