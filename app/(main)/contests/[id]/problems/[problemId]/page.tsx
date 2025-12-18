@@ -7,13 +7,19 @@ type Problem = Database['public']['Tables']['contest_problems']['Row'];
 
 // Left panel: problem details
 function ProblemDetails({ problem, index }: { problem: Problem; index: number }) {
-  const difficultyStyles = {
+  const difficultyStyles: Record<'Easy' | 'Medium' | 'Hard', string> = {
     Easy: 'bg-green-500/20 text-green-300',
     Medium: 'bg-yellow-500/20 text-yellow-300',
     Hard: 'bg-red-500/20 text-red-300',
   };
 
   const problemLetter = String.fromCharCode(65 + index);
+
+  // 🔑 Narrow difficulty before indexing
+  const difficultyClass =
+    (problem.difficulty &&
+      difficultyStyles[problem.difficulty as keyof typeof difficultyStyles]) ||
+    'bg-gray-500/20';
 
   return (
     <div className="p-8 text-gray-300">
@@ -23,9 +29,7 @@ function ProblemDetails({ problem, index }: { problem: Problem; index: number })
 
       <div className="flex items-center gap-4 mb-8 pb-8 border-b border-border-color">
         <span
-          className={`px-4 py-2 text-sm font-semibold rounded-full ${
-            difficultyStyles[problem.difficulty] || 'bg-gray-500/20'
-          }`}
+          className={`px-4 py-2 text-sm font-semibold rounded-full ${difficultyClass}`}
         >
           {problem.difficulty}
         </span>
