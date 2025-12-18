@@ -27,7 +27,8 @@ export default function ContestCard({ contest }: { contest: Contest }) {
   const renderAction = () => {
     switch (contest.status) {
       case 'Upcoming':
-        return <Countdown targetDate={contest.start_time} />;
+        // 🔁 CHANGED: targetDate -> endTime (to match Countdown props)
+        return <Countdown endTime={contest.start_time} />;
 
       case 'Active':
         return (
