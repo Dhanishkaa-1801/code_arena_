@@ -4,7 +4,6 @@ import { createClient } from '@/utils/supabase/server';
 import PracticeProblemTable from '@/components/PracticeProblemTable';
 import type { PracticeProblem } from '@/components/PracticeProblemTable';
 
-// We force the page to be dynamic so it fetches fresh data (and the green tick) on every load
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
@@ -23,17 +22,18 @@ export default async function ProblemBankPage() {
   }
 
   // 1. Fetch all problems that are available for practice
-  // We join with the 'contests' table to check the end_time and get the name
+  // Join contests to get name, end_time, and stream
   const { data: rawProblems, error: problemsError } = await supabase
     .from('contest_problems')
     .select(
       `
-      id, 
-      title, 
-      difficulty, 
+      id,
+      title,
+      difficulty,
       contests!inner (
         name,
-        end_time
+        end_time,
+        stream
       )
     `
     )
@@ -50,7 +50,7 @@ export default async function ProblemBankPage() {
     );
   }
 
-  // 2. Fetch the user's submissions to calculate status (Solved/Attempted)
+  // 2. Fetch the user's submissions to calculate status
   const { data: userSubmissions, error: submissionsError } = await supabase
     .from('submissions')
     .select('problem_id, verdict')
@@ -58,24 +58,21 @@ export default async function ProblemBankPage() {
 
   if (submissionsError) {
     console.error('Error fetching submissions:', submissionsError);
-    // We don't block the page, we just assume "Not Attempted" if this fails
+    // We'll just treat everything as Not Attempted if this fails
   }
 
   // 3. Create a map for fast lookup of submission status
-  // Map Key: problemId -> Value: 'Solved' | 'Attempted'
-  const submissionMap = new Map<number, PracticeProblem['status']>(); // 🔁 typed to PracticeProblem['status']
+  const submissionMap = new Map<number, PracticeProblem['status']>();
 
   if (userSubmissions) {
-    userSubmissions.forEach((sub) => {
+    userSubmissions.forEach((sub: any) => {
       const currentStatus = submissionMap.get(sub.problem_id);
 
-      // If we already marked it as Solved, leave it as Solved
       if (currentStatus === 'Solved') return;
 
       if (sub.verdict === 'Accepted') {
         submissionMap.set(sub.problem_id, 'Solved');
       } else {
-        // If it's not Accepted, mark as Attempted (unless already Solved)
         submissionMap.set(sub.problem_id, 'Attempted');
       }
     });
@@ -83,19 +80,22 @@ export default async function ProblemBankPage() {
 
   // 4. Merge data to create the final array for the UI
   const practiceProblems: PracticeProblem[] = (rawProblems || []).map((p: any) => {
-    // Check our map to see if the user touched this problem
     const status: PracticeProblem['status'] =
-      submissionMap.get(p.id) || 'Not Attempted'; // 🔁 explicitly typed
+      submissionMap.get(p.id) || 'Not Attempted';
+
+    const difficulty = (p.difficulty || 'Easy') as PracticeProblem['difficulty'];
+    const stream = (p.contests?.stream || 'all') as PracticeProblem['stream'];
 
     return {
-      id: p.id,
-      title: p.title,
-      difficulty: p.difficulty as PracticeProblem['difficulty'], // keep as-is, just cast
+      id: p.id as number,
+      title: p.title as string,
+      difficulty,
       status,
       source:
         p.contests?.name === 'Practice Problem Collection'
           ? 'Collection'
           : 'Contest',
+      stream,
     };
   });
 

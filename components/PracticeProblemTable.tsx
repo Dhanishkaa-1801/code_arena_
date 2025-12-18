@@ -10,6 +10,7 @@ export type PracticeProblem = {
   difficulty: 'Easy' | 'Medium' | 'Hard';
   status: 'Solved' | 'Attempted' | 'Not Attempted';
   source: 'Contest' | 'Collection';
+  stream: '1' | '2' | '3' | 'all';
 };
 
 export default function PracticeProblemTable({ problems }: { problems: PracticeProblem[] }) {
@@ -17,30 +18,54 @@ export default function PracticeProblemTable({ problems }: { problems: PracticeP
 
   // Filter States
   const [searchQuery, setSearchQuery] = useState('');
-  const [difficultyFilter, setDifficultyFilter] = useState<'All' | 'Easy' | 'Medium' | 'Hard'>('All');
-  const [statusFilter, setStatusFilter] = useState<'All' | 'Solved' | 'Unattempted'>('All'); // 🔁 changed
-  const [sourceFilter, setSourceFilter] = useState<'All' | 'Contest' | 'Collection'>('All');
+  const [difficultyFilter, setDifficultyFilter] =
+    useState<'All' | 'Easy' | 'Medium' | 'Hard'>('All');
+  const [statusFilter, setStatusFilter] =
+    useState<'All' | 'Solved' | 'Unattempted'>('All');
+  const [sourceFilter, setSourceFilter] =
+    useState<'All' | 'Contest' | 'Collection'>('All');
+  const [streamFilter, setStreamFilter] =
+    useState<'all' | '1' | '2' | '3'>('all');
 
   // ⚡ Filter Logic
   const filteredProblems = useMemo(() => {
     return problems.filter((p) => {
-      const matchesSearch = p.title.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesDifficulty = difficultyFilter === 'All' || p.difficulty === difficultyFilter;
-      const matchesSource = sourceFilter === 'All' || p.source === sourceFilter;
+      const matchesSearch = p.title
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase());
+
+      const matchesDifficulty =
+        difficultyFilter === 'All' || p.difficulty === difficultyFilter;
+
+      const matchesSource =
+        sourceFilter === 'All' || p.source === sourceFilter;
 
       // Status Filter
       let matchesStatus = true;
       if (statusFilter === 'Solved') matchesStatus = p.status === 'Solved';
-      if (statusFilter === 'Unattempted') matchesStatus = p.status === 'Not Attempted'; // 🔁 changed
-      
-      return matchesSearch && matchesDifficulty && matchesStatus && matchesSource;
+      if (statusFilter === 'Unattempted')
+        matchesStatus = p.status === 'Not Attempted';
+
+      // Stream Filter – strict: only exact stream, or all when 'all' selected
+      const matchesStream =
+        streamFilter === 'all' ? true : p.stream === streamFilter;
+
+      return (
+        matchesSearch &&
+        matchesDifficulty &&
+        matchesStatus &&
+        matchesSource &&
+        matchesStream
+      );
     });
-  }, [problems, searchQuery, difficultyFilter, statusFilter, sourceFilter]);
+  }, [problems, searchQuery, difficultyFilter, statusFilter, sourceFilter, streamFilter]);
 
   // Helper for Status Icons
   const renderStatusIcon = (status: string) => {
-    if (status === 'Solved') return <CheckCircle2 className="w-5 h-5 text-arena-green" />;
-    if (status === 'Attempted') return <AlertCircle className="w-5 h-5 text-yellow-500" />;
+    if (status === 'Solved')
+      return <CheckCircle2 className="w-5 h-5 text-arena-green" />;
+    if (status === 'Attempted')
+      return <AlertCircle className="w-5 h-5 text-yellow-500" />;
     return <Circle className="w-5 h-5 text-gray-600" />;
   };
 
@@ -60,12 +85,30 @@ export default function PracticeProblemTable({ problems }: { problems: PracticeP
     );
   };
 
+  // Helper for Stream Colors
+  const renderStreamBadge = (stream: PracticeProblem['stream']) => {
+    const label =
+      stream === 'all' ? 'All' : `Stream ${stream}`;
+    const colors: Record<PracticeProblem['stream'], string> = {
+      '1': 'bg-sky-900/30 text-sky-300',
+      '2': 'bg-emerald-900/30 text-emerald-300',
+      '3': 'bg-orange-900/30 text-orange-300',
+      all: 'bg-gray-800/40 text-gray-300',
+    };
+
+    return (
+      <span
+        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${colors[stream]}`}
+      >
+        {label}
+      </span>
+    );
+  };
+
   return (
     <div className="space-y-6">
-      
       {/* 🔍 Filter Bar */}
       <div className="bg-card-bg border border-border-color p-4 rounded-lg flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-        
         {/* Search Input */}
         <div className="relative w-full md:w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -80,10 +123,11 @@ export default function PracticeProblemTable({ problems }: { problems: PracticeP
 
         {/* Filter Buttons Group */}
         <div className="flex flex-wrap items-center gap-6 text-sm">
-          
           {/* Difficulty Filter */}
           <div className="flex items-center gap-2">
-            <span className="text-gray-400 hidden sm:inline">Difficulty:</span>
+            <span className="text-gray-400 hidden sm:inline">
+              Difficulty:
+            </span>
             {['All', 'Easy', 'Medium', 'Hard'].map((lvl) => (
               <button
                 key={lvl}
@@ -102,7 +146,7 @@ export default function PracticeProblemTable({ problems }: { problems: PracticeP
           {/* Status Filter */}
           <div className="flex items-center gap-2">
             <span className="text-gray-400 hidden sm:inline">Status:</span>
-            {['All', 'Solved', 'Unattempted'].map((st) => ( // 🔁 label changed
+            {['All', 'Solved', 'Unattempted'].map((st) => (
               <button
                 key={st}
                 onClick={() => setStatusFilter(st as any)}
@@ -117,7 +161,7 @@ export default function PracticeProblemTable({ problems }: { problems: PracticeP
             ))}
           </div>
 
-          {/* ✅ FROM (Source) Filter */}
+          {/* From (Source) Filter */}
           <div className="flex items-center gap-2">
             <span className="text-gray-400 hidden sm:inline">From:</span>
             {['All', 'Contest', 'Collection'].map((src) => (
@@ -135,6 +179,28 @@ export default function PracticeProblemTable({ problems }: { problems: PracticeP
             ))}
           </div>
 
+          {/* Stream Filter */}
+          <div className="flex items-center gap-2">
+            <span className="text-gray-400 hidden sm:inline">Stream:</span>
+            {[
+              { label: 'All', value: 'all' },
+              { label: '1', value: '1' },
+              { label: '2', value: '2' },
+              { label: '3', value: '3' },
+            ].map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setStreamFilter(opt.value as any)}
+                className={`px-3 py-1 rounded-full transition-all ${
+                  streamFilter === opt.value
+                    ? 'bg-sky-500 text-dark-bg font-semibold'
+                    : 'bg-dark-bg text-gray-400 hover:text-white'
+                }`}
+              >
+                {opt.value === 'all' ? 'Stream All' : `Stream ${opt.label}`}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -146,8 +212,9 @@ export default function PracticeProblemTable({ problems }: { problems: PracticeP
               <th className="px-6 py-4 w-16 text-center">No.</th>
               <th className="px-6 py-4 w-16 text-center">Status</th>
               <th className="px-6 py-4">Title</th>
-              <th className="px-6 py-4 text-center">From</th>
               <th className="px-6 py-4 text-right">Difficulty</th>
+              <th className="px-6 py-4 text-center">From</th>
+              <th className="px-6 py-4 text-center">Stream</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border-color">
@@ -167,6 +234,9 @@ export default function PracticeProblemTable({ problems }: { problems: PracticeP
                   <td className="px-6 py-4 font-medium text-gray-200 group-hover:text-arena-blue transition-colors">
                     {problem.title}
                   </td>
+                  <td className="px-6 py-4 text-right">
+                    {renderDifficultyBadge(problem.difficulty)}
+                  </td>
                   <td className="px-6 py-4 text-center text-sm text-gray-400">
                     <span
                       className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
@@ -178,14 +248,14 @@ export default function PracticeProblemTable({ problems }: { problems: PracticeP
                       {problem.source}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-right">
-                    {renderDifficultyBadge(problem.difficulty)}
+                  <td className="px-6 py-4 text-center text-sm text-gray-400">
+                    {renderStreamBadge(problem.stream)}
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
                   No problems match your filters.
                 </td>
               </tr>

@@ -2,11 +2,14 @@
 
 import { useTransition } from 'react';
 
+type Stream = '1' | '2' | '3' | 'all';
+
 type ContestData = {
   name: string;
   description: string;
   startTime: string;
   endTime: string;
+  stream: Stream;
 };
 
 export function HostContestForm({
@@ -24,9 +27,10 @@ export function HostContestForm({
     const description = formData.get('description') as string;
     const startTimeLocal = formData.get('startTime') as string;
     const endTimeLocal = formData.get('endTime') as string;
+    const stream = formData.get('stream') as Stream; // 🔁 NEW FIELD
 
     // Basic presence check
-    if (!name || !startTimeLocal || !endTimeLocal) {
+    if (!name || !startTimeLocal || !endTimeLocal || !stream) {
       alert('Please fill in all required fields.');
       return;
     }
@@ -62,6 +66,7 @@ export function HostContestForm({
         description,
         startTime: startTimeUTC,
         endTime: endTimeUTC,
+        stream, // 🔁 PASS THROUGH
       });
     });
   };
@@ -83,6 +88,7 @@ export function HostContestForm({
           className="mt-1 w-full bg-dark-bg border border-border-color rounded-md p-3 text-white focus:ring-arena-pink focus:border-arena-pink"
         />
       </div>
+
       <div>
         <label
           htmlFor="description"
@@ -97,6 +103,7 @@ export function HostContestForm({
           className="mt-1 w-full bg-dark-bg border border-border-color rounded-md p-3 text-white focus:ring-arena-pink focus:border-arena-pink"
         ></textarea>
       </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <div>
           <label
@@ -129,6 +136,29 @@ export function HostContestForm({
           />
         </div>
       </div>
+
+      {/* Stream selector */}
+      <div>
+        <label
+          htmlFor="stream"
+          className="block text-sm font-medium text-gray-300"
+        >
+          Stream
+        </label>
+        <select
+          id="stream"
+          name="stream"
+          required
+          defaultValue="all"
+          className="mt-1 w-full bg-dark-bg border border-border-color rounded-md p-3 text-white focus:ring-arena-pink focus:border-arena-pink"
+        >
+          <option value="all">All Streams</option>
+          <option value="1">Stream 1 – CSE / MTECH / IT / AI&amp;DS</option>
+          <option value="2">Stream 2 – EEE / ECE / EIE / R&amp;A</option>
+          <option value="3">Stream 3 – MECH / BME / CIVIL / AERO</option>
+        </select>
+      </div>
+
       <button
         type="submit"
         disabled={isPending}

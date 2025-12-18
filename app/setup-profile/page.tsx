@@ -107,7 +107,7 @@ export default async function SetupProfilePage() {
               htmlFor="rollNo"
               className="block text-sm font-medium text-gray-300"
             >
-              Roll Number
+              Roll Number-7181...
             </label>
             <input
               id="rollNo"

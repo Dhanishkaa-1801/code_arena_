@@ -30,11 +30,19 @@ const runCodeSchema = z.object({
 const decodeBase64 = (value?: string | null): string | null =>
   value ? Buffer.from(value, 'base64').toString('utf-8') : null;
 
-// --- 1. RUN CODE (TESTING ONLY) ---
-// helper already defined above
-// const decodeBase64 = (value?: string | null): string | null =>
-//   value ? Buffer.from(value, 'base64').toString('utf-8') : null;
+// 🔁 NEW: map department -> stream ('1' | '2' | '3')
+function getStreamFromDepartment(dept: string | null): '1' | '2' | '3' {
+  if (!dept) return '3';
+  const d = dept.toUpperCase();
 
+  if (['CSE', 'MTECH', 'IT', 'AI&DS'].includes(d)) return '1';   // Comp stream
+  if (['EEE', 'ECE', 'EIE', 'R&A'].includes(d)) return '2';      // Electro/Robotics
+  if (['MECH', 'BME', 'CIVIL', 'AERO'].includes(d)) return '3';  // General/Core
+
+  return '3';
+}
+
+// --- 1. RUN CODE (TESTING ONLY) ---
 export async function runCode(payload: {
   code: string;
   language: string;
@@ -95,7 +103,7 @@ export async function runCode(payload: {
     let errorText =
       compileOut ??
       stderr ??
-      message ?? // <--- NOW WE USE MESSAGE TOO
+      message ??
       stdout ??
       null;
 
@@ -125,7 +133,7 @@ export async function runCode(payload: {
   }
 }
 
-// --- 2. SUBMIT CONTEST CODE (STRICT DEADLINE) ---
+// --- 2. SUBMIT CONTEST CODE (STRICT DEADLINE + STREAM CHECK) ---
 export async function submitCode(
   prevState: SubmissionState,
   formData: FormData
@@ -141,13 +149,14 @@ export async function submitCode(
   const problemId = Number(formData.get('problemId'));
   const contestId = Number(formData.get('contestId'));
 
-  // STRICT RULE: If submitting in contest mode, contest must be active
+  // Fetch contest with end_time + stream
   const { data: contest } = await supabase
     .from('contests')
-    .select('end_time')
+    .select('end_time, stream')
     .eq('id', contestId)
     .single();
 
+  // If contest missing or ended, block
   if (!contest || new Date() > new Date(contest.end_time)) {
     return {
       verdict: 'Error',
@@ -155,6 +164,34 @@ export async function submitCode(
     };
   }
 
+  // Stream restriction: only allow submissions if user's stream matches contest.stream (unless 'all')
+  if (contest.stream && contest.stream !== 'all') {
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('department')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      console.error('Profile fetch error for stream check:', profileError);
+      return {
+        verdict: 'Error',
+        error: 'Could not verify your profile stream. Please contact admin.',
+      };
+    }
+
+    const userStream = getStreamFromDepartment(profile.department);
+    const contestStream = contest.stream as '1' | '2' | '3' | 'all';
+
+    if (contestStream !== 'all' && userStream !== contestStream) {
+      return {
+        verdict: 'Error',
+        error: 'This contest is not available for your stream.',
+      };
+    }
+  }
+
+  // If contest is active and stream matches, proceed
   return processSubmission(user.id, problemId, contestId, code, language);
 }
 

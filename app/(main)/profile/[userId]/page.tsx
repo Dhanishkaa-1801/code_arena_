@@ -36,6 +36,22 @@ function calculateStreak(dates: string[]) {
   return streak;
 }
 
+// NEW: derive stream from department and get label
+function getStreamFromDepartment(dept: string | null): '1' | '2' | '3' {
+  if (!dept) return '3';
+  const d = dept.toUpperCase();
+
+  if (['CSE', 'MTECH', 'IT', 'AI&DS'].includes(d)) return '1';
+  if (['EEE', 'ECE', 'EIE', 'R&A'].includes(d)) return '2';
+  if (['MECH', 'BME', 'CIVIL', 'AERO'].includes(d)) return '3';
+
+  return '3';
+}
+
+function getStreamLabel(stream: '1' | '2' | '3'): string {
+  return `Stream ${stream}`;
+}
+
 export default async function UserProfilePage({
   params,
 }: {
@@ -64,6 +80,10 @@ export default async function UserProfilePage({
   const isAdmin = profile.role === 'admin';
   const displayName = profile.full_name || 'Coder';
 
+  // derive stream from department
+  const userStream = getStreamFromDepartment(profile.department);
+  const userStreamLabel = getStreamLabel(userStream);
+
   // If admin, show only profile card
   if (isAdmin) {
     return (
@@ -74,6 +94,7 @@ export default async function UserProfilePage({
             email={isOwner ? loggedInUser?.email : null}
             displayName={displayName}
             isOwner={isOwner}
+            streamLabel={userStreamLabel} // NEW
           />
         </div>
       </div>
@@ -166,6 +187,7 @@ export default async function UserProfilePage({
           email={isOwner ? loggedInUser?.email : null}
           displayName={displayName}
           isOwner={isOwner}
+          streamLabel={userStreamLabel} // NEW
         />
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -277,6 +299,7 @@ function ProfileHeaderCard({
   email,
   displayName,
   isOwner,
+  streamLabel,
 }: any) {
   return (
     <div className="bg-card-bg border border-border-color rounded-xl p-8 flex flex-col md:flex-row items-center md:items-start gap-8 relative overflow-hidden shadow-lg">
@@ -314,6 +337,8 @@ function ProfileHeaderCard({
               {profile?.year && (
                 <Badge label={`Year ${profile.year}`} color="mint" />
               )}
+              {/* NEW: stream badge */}
+              {streamLabel && <Badge label={streamLabel} color="mint" />}
               {profile?.section && (
                 <Badge label={`Sec ${profile.section}`} color="gray" />
               )}
