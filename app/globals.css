@@ -3,20 +3,39 @@
 @tailwind utilities;
 
 body {
-  background: linear-gradient(135deg, 
-    rgba(255, 153, 216, 0.1) 0%, 
-    rgba(206, 168, 240, 0.1) 35%, 
-    rgba(137, 187, 228, 0.1) 70%, 
-    rgba(153, 255, 206, 0.1) 100%),
-    #0f172a;
+  background: radial-gradient(circle at top left, rgba(244, 114, 182, 0.03), transparent 40%),
+              radial-gradient(circle at bottom right, rgba(14, 165, 233, 0.03), transparent 40%),
+              #020617;
   background-attachment: fixed;
+  color: #f1f5f9;
+}
+
+/* --- Custom Floating Animation --- */
+@keyframes float {
+  0% { transform: translateY(0px) translateX(0px); }
+  50% { transform: translateY(-20px) translateX(10px); }
+  100% { transform: translateY(0px) translateX(0px); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* --- Fixed Handwriting Styles --- */
+.font-handwriting {
+  font-family: 'Caveat', cursive;
+}
+
+.hero-img {
+  filter: contrast(1.1) brightness(1.05) saturate(1.1);
+  image-rendering: -webkit-optimize-contrast;
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 .animate-fadeIn {
-  animation: fadeIn 0.4s ease-in-out;
+  animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1);
 }

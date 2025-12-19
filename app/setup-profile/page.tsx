@@ -42,24 +42,35 @@ export default async function SetupProfilePage() {
       return redirect('/login?error=user_not_found');
     }
 
-    const fullName = formData.get('fullName') as string;
+    // 1. FORCED OFFICIAL NAME: Pull directly from Auth Metadata for security
+    const officialName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
+
+    // 2. Extract other fields
     const rollNo = formData.get('rollNo') as string;
     const department = formData.get('department') as string;
-    const year = parseInt(formData.get('year') as string, 10);
+    const yearStr = formData.get('year') as string;
     const section = formData.get('section') as string;
 
+    // 3. STRICT VALIDATION: Ensure everything is filled
+    if (!rollNo || !department || !yearStr || !section || rollNo.trim() === '' || section.trim() === '') {
+      return redirect('/setup-profile?error=all_fields_mandatory');
+    }
+
+    const year = parseInt(yearStr, 10);
+
+    // 4. USE UPSERT: Creates the row if it doesn't exist, updates if it does
     const { error } = await supabase
       .from('profiles')
-      .update({
-        full_name: fullName,
-        roll_no: rollNo,
+      .upsert({
+        id: user.id, // Primary Key
+        full_name: officialName, // Use official name, ignoring form input for security
+        roll_no: rollNo.trim(),
         department,
         year,
-        section,
+        section: section.trim(),
         profile_complete: true,
         updated_at: new Date().toISOString(),
-      })
-      .eq('id', user.id);
+      });
 
     if (error) {
       console.error('Error updating profile:', error);
@@ -71,6 +82,9 @@ export default async function SetupProfilePage() {
     return redirect('/contests');
   };
 
+  // Get current name for the read-only display
+  const currentName = user.user_metadata?.full_name || user.email?.split('@')[0] || '';
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-dark-bg p-4">
       <div className="w-full max-w-lg p-8 bg-card-bg border border-border-color rounded-xl shadow-2xl">
@@ -79,26 +93,26 @@ export default async function SetupProfilePage() {
             Complete Your Profile
           </h2>
           <p className="mt-2 text-sm text-gray-400">
-            Welcome to Code Arena! Please provide a few more details to get
-            started.
+            Welcome to Code Arena! All fields are mandatory to continue.
           </p>
         </div>
 
         <form action={updateProfile} className="space-y-6">
+          {/* FULL NAME - READ ONLY */}
           <div>
             <label
               htmlFor="fullName"
-              className="block text-sm font-medium text-gray-300"
+              className="block text-sm font-medium text-gray-400"
             >
-              Full Name
+              Full Name (Locked)
             </label>
             <input
               id="fullName"
               name="fullName"
               type="text"
-              required
-              defaultValue={user.user_metadata?.full_name ?? ''}
-              className="mt-1 block w-full bg-dark-bg border border-border-color rounded-md p-3 text-white focus:ring-arena-pink focus:border-arena-pink"
+              readOnly
+              value={currentName}
+              className="mt-1 block w-full bg-[#020617] border border-border-color rounded-md p-3 text-gray-500 cursor-not-allowed outline-none"
             />
           </div>
 
@@ -107,13 +121,14 @@ export default async function SetupProfilePage() {
               htmlFor="rollNo"
               className="block text-sm font-medium text-gray-300"
             >
-              Roll Number-7181...
+              Roll Number
             </label>
             <input
               id="rollNo"
               name="rollNo"
               type="text"
               required
+              placeholder="e.g. 7181..."
               className="mt-1 block w-full bg-dark-bg border border-border-color rounded-md p-3 text-white focus:ring-arena-pink focus:border-arena-pink"
             />
           </div>
@@ -135,7 +150,7 @@ export default async function SetupProfilePage() {
                 defaultValue=""
               >
                 <option value="" disabled>
-                  Select Department
+                  Select
                 </option>
                 {departmentOptions.map((dept) => (
                   <option key={dept} value={dept}>
@@ -179,6 +194,7 @@ export default async function SetupProfilePage() {
                 name="section"
                 type="text"
                 required
+                placeholder="e.g. A"
                 className="mt-1 block w-full bg-dark-bg border border-border-color rounded-md p-3 text-white focus:ring-arena-pink focus:border-arena-pink"
               />
             </div>
@@ -187,7 +203,7 @@ export default async function SetupProfilePage() {
           <div>
             <button
               type="submit"
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-bold text-dark-bg bg-gradient-to-r from-arena-pink to-arena-blue hover:opacity-90"
+              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-bold text-dark-bg bg-gradient-to-r from-arena-pink to-arena-blue hover:opacity-90 transition-transform active:scale-95"
             >
               Save and Continue
             </button>
