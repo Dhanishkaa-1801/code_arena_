@@ -36,7 +36,7 @@ const NavLinks = ({ items }: { items: NavItem[] }) => {
             className={`px-5 py-2 rounded-full font-bold text-sm transition-all duration-300 ${
               isActive
                 ? 'bg-gradient-to-r from-arena-pink to-arena-blue text-dark-bg shadow-lg shadow-arena-pink/20'
-                : 'text-gray-300 hover:text-white'
+                : 'text-gray-300 hover:bg-gray-700/50 hover:text-white'
             }`}
           >
             {item.label}
@@ -71,13 +71,13 @@ export default function Header({ user, customNavItems, userRole }: HeaderProps) 
     <header className="bg-[#020617] border-b border-white/10 h-[76px] sticky top-0 z-50 font-sans">
       <div className="max-w-[1600px] mx-auto px-4 sm:px-8 h-full flex items-center justify-between">
         
-        {/* Left Section: Logo logic preserved from your previous code */}
+        {/* Left Section: Logo logic updated to point to "/" only */}
         <div className="flex items-center gap-6">
-          <Link href={isAdminView ? "/admin/contests" : "/contests"} className="flex items-center gap-3 group">
+          <Link href="/" className="flex items-center gap-3 group">
             <div className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center border border-white/10 group-hover:border-arena-pink/50 transition-all">
                <Code2 className="text-arena-pink" size={24} strokeWidth={2} />
             </div>
-            <span className="text-arena-pink text-2xl font-bold tracking-tight">CODE ARENA</span>
+            <span className="text-arena-pink text-2xl font-bold tracking-tight uppercase">CODE ARENA</span>
             {isAdminView && (
               <span className="bg-arena-pink/20 text-arena-pink text-[10px] font-bold px-2 py-0.5 rounded border border-arena-pink/30 tracking-widest ml-1 uppercase">
                 ADMIN PANEL
