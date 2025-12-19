@@ -83,6 +83,15 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - icon.svg (YOUR PINK LOGO ICON)
+     * - any common image extensions (.png, .jpg, etc)
+     * This ensures the icon and hero images load even when logged out.
+     */
+    '/((?!_next/static|_next/image|favicon.ico|icon.svg|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
