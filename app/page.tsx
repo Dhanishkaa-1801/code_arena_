@@ -111,9 +111,9 @@ export default async function LandingPage() {
           <div className="grid lg:grid-cols-2 gap-20 items-center relative">
             <div className="space-y-6 order-2 lg:order-1 relative z-10">
               <Badge icon={<BarChart size={16}/>} color="text-arena-mint" label="Rankings" />
-              <h2 className="text-5xl font-bold tracking-tight text-white uppercase">Fair Play Ranking</h2>
-              <p className="text-gray-400 text-lg leading-relaxed max-w-md font-medium">Realtime Leaderboards restricted to contest windows.</p>
-              <FeatureItem label="Download Results as CSV" />
+              <h2 className="text-5xl font-bold tracking-tight text-white uppercase">Realtime Leaderboards</h2>
+              <p className="text-gray-400 text-lg leading-relaxed max-w-md font-medium"> Leaderboards restricted to contest windows and stream based for fair play.</p>
+              <FeatureItem label="Viewable for everyone with profile linking" />
             </div>
             <div className="relative order-1 lg:order-2 group flex justify-center">
               <div className="absolute inset-0 flex justify-between items-center text-white/[0.18] text-[400px] font-mono select-none pointer-events-none z-0">
