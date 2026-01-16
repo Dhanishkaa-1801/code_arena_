@@ -1,7 +1,8 @@
 import { createClient } from '@/utils/supabase/server';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import ProblemWorkspace from '@/components/ProblemWorkspace';
 import { Database } from '@/types_db';
+import { getStreamFromDepartment } from '@/utils/streams';
 
 type Problem = Database['public']['Tables']['contest_problems']['Row'];
 
@@ -15,7 +16,6 @@ function ProblemDetails({ problem, index }: { problem: Problem; index: number })
 
   const problemLetter = String.fromCharCode(65 + index);
 
-  // 🔑 Narrow difficulty before indexing
   const difficultyClass =
     (problem.difficulty &&
       difficultyStyles[problem.difficulty as keyof typeof difficultyStyles]) ||
@@ -83,9 +83,14 @@ export default async function ProblemPage({
 }) {
   const supabase = createClient();
   const contestId = Number(params.id);
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect('/login');
+  }
 
   const problemPromise = supabase
     .from('contest_problems')
@@ -95,36 +100,54 @@ export default async function ProblemPage({
 
   const contestPromise = supabase
     .from('contests')
-    .select('end_time')
+    .select('end_time, stream')
     .eq('id', contestId)
     .single();
 
-  const lastSubmissionPromise = user
-    ? supabase
-        .from('submissions')
-        .select('code, language')
-        .eq('user_id', user.id)
-        .eq('problem_id', params.problemId)
-        .order('submitted_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-    : Promise.resolve({ data: null, error: null });
+  const profilePromise = supabase
+    .from('profiles')
+    .select('department')
+    .eq('id', user.id)
+    .single();
+
+  const lastSubmissionPromise = supabase
+    .from('submissions')
+    .select('code, language')
+    .eq('user_id', user.id)
+    .eq('problem_id', params.problemId)
+    .order('submitted_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
   const [
     { data: problem, error: problemError },
     { data: contest, error: contestError },
+    { data: profile },
     { data: lastSubmission },
-  ] = await Promise.all([problemPromise, contestPromise, lastSubmissionPromise]);
+  ] = await Promise.all([
+    problemPromise,
+    contestPromise,
+    profilePromise,
+    lastSubmissionPromise,
+  ]);
 
   if (problemError || contestError || !problem || !contest) {
     notFound();
+  }
+
+  // Stream lock logic
+  let isLocked = false;
+  if (contest.stream && contest.stream !== 'all') {
+    const userStream = getStreamFromDepartment(profile?.department || null);
+    if (userStream !== contest.stream) {
+      isLocked = true;
+    }
   }
 
   const problemIndex = Number(searchParams.index || 0);
 
   return (
     <main className="p-4 sm:p-8 h-[calc(100vh-70px)] bg-dark-bg">
-      {/* Match practice layout: center + max width */}
       <div className="max-w-screen-2xl mx-auto h-full">
         <div className="flex h-full w-full rounded-lg border-2 border-arena-blue overflow-hidden shadow-2xl shadow-arena-blue/10">
           <div className="w-1/2 overflow-y-auto bg-card-bg border-r border-border-color">
@@ -136,6 +159,7 @@ export default async function ProblemPage({
               contestId={contestId}
               contestEndTime={contest.end_time}
               lastSubmission={lastSubmission}
+              isLocked={isLocked}
             />
           </div>
         </div>

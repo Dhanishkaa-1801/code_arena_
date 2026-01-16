@@ -6,12 +6,16 @@ export const dynamic = 'force-dynamic';
 
 export default async function LeaderboardPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
-  const contestId = params.id;
+  const contestId = Number(params.id);
 
-  const { data: { user } } = await supabase.auth.getUser();
-  const { data: profile } = user 
-    ? await supabase.from('profiles').select('role').eq('id', user.id).single() 
-    : { data: null };
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: profile } = user
+    ? await supabase.from('profiles').select('role').eq('id', user.id).single()
+    : { data: null as any };
+
   const isAdmin = profile?.role === 'admin';
 
   const { data: contest, error: contestError } = await supabase
@@ -34,16 +38,27 @@ export default async function LeaderboardPage({ params }: { params: { id: string
     .lte('submitted_at', contest.end_time)
     .order('submitted_at', { ascending: true });
 
+  // 🆕 monitoring data used for penalties, switches, runs
+  const { data: monitoringData } = await supabase
+    .from('contest_monitoring')
+    .select('user_id, tab_switches, run_count, first_opened_at')
+    .eq('contest_id', contestId);
+
   if (submissionsError) {
-    return <p className="text-center p-20 text-red-500">Could not load leaderboard data.</p>;
+    return (
+      <p className="text-center p-20 text-red-500">
+        Could not load leaderboard data.
+      </p>
+    );
   }
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-8">
-      <RealtimeLeaderboard 
-        initialSubmissions={submissions || []} 
-        contest={contest} 
-        isAdmin={isAdmin} 
+      <RealtimeLeaderboard
+        initialSubmissions={submissions || []}
+        monitoringData={monitoringData || []}
+        contest={contest}
+        isAdmin={isAdmin}
       />
     </div>
   );

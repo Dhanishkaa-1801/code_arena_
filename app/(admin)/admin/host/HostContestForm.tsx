@@ -27,7 +27,7 @@ export function HostContestForm({
     const description = formData.get('description') as string;
     const startTimeLocal = formData.get('startTime') as string;
     const endTimeLocal = formData.get('endTime') as string;
-    const stream = formData.get('stream') as Stream; // 🔁 NEW FIELD
+    const stream = formData.get('stream') as Stream;
 
     // Basic presence check
     if (!name || !startTimeLocal || !endTimeLocal || !stream) {
@@ -66,7 +66,7 @@ export function HostContestForm({
         description,
         startTime: startTimeUTC,
         endTime: endTimeUTC,
-        stream, // 🔁 PASS THROUGH
+        stream,
       });
     });
   };
@@ -117,7 +117,8 @@ export function HostContestForm({
             name="startTime"
             id="startTime"
             required
-            className="mt-1 w-full bg-dark-bg border border-border-color rounded-md p-3 text-gray-300 appearance-none"
+            // Added filter inversion to make the calendar icon white
+            className="mt-1 w-full bg-dark-bg border border-border-color rounded-md p-3 text-gray-300 appearance-none [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert"
           />
         </div>
         <div>
@@ -132,7 +133,8 @@ export function HostContestForm({
             name="endTime"
             id="endTime"
             required
-            className="mt-1 w-full bg-dark-bg border border-border-color rounded-md p-3 text-gray-300 appearance-none"
+            // Added filter inversion to make the calendar icon white
+            className="mt-1 w-full bg-dark-bg border border-border-color rounded-md p-3 text-gray-300 appearance-none [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert"
           />
         </div>
       </div>
@@ -153,9 +155,10 @@ export function HostContestForm({
           className="mt-1 w-full bg-dark-bg border border-border-color rounded-md p-3 text-white focus:ring-arena-pink focus:border-arena-pink"
         >
           <option value="all">All Streams</option>
-          <option value="1">Stream 1 – CSE / MTECH / IT / AI&amp;DS</option>
-          <option value="2">Stream 2 – EEE / ECE / EIE / R&amp;A</option>
-          <option value="3">Stream 3 – MECH / BME / CIVIL / AERO</option>
+          {/* UPDATED LABELS TO MATCH NEW LOGIC */}
+          <option value="1">Stream 1 – AERO / BME / CIVIL / MECH / R&amp;A</option>
+          <option value="2">Stream 2 – ECE / EEE / EIE</option>
+          <option value="3">Stream 3 – CSE / IT / AI&amp;DS / M.TECH</option>
         </select>
       </div>
 

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import { runCode } from '@/app/actions/submissions';
+import { incrementRunCount } from '@/app/actions/proctor';
 import { type SubmissionState, type RunCodeState } from '@/app/actions/submissions';
 
 const TABS = ['Testcase', 'Result'] as const;
@@ -11,24 +12,44 @@ interface WorkspaceTabsProps {
   submissionResult: SubmissionState;
   code: string;
   language: string;
+  contestId?: number;
 }
 
-export default function WorkspaceTabs({ submissionResult, code, language }: WorkspaceTabsProps) {
+export default function WorkspaceTabs({
+  submissionResult,
+  code,
+  language,
+  contestId,
+}: WorkspaceTabsProps) {
   const [activeTab, setActiveTab] = useState<Tab>('Testcase');
   const [customInput, setCustomInput] = useState('');
-  
   const [runResult, setRunResult] = useState<RunCodeState | null>(null);
   const [isRunning, startTransition] = useTransition();
 
+  // Auto-switch to Result tab when a verdict / error arrives from submitCode
+  useEffect(() => {
+    if (submissionResult?.verdict || submissionResult?.error) {
+      setActiveTab('Result');
+    }
+  }, [submissionResult]);
+
   const handleRunCode = () => {
     startTransition(async () => {
+      // Log run count (for leaderboard analytics)
+      if (contestId) {
+        try {
+          await incrementRunCount(contestId);
+        } catch (e) {
+          console.error('Failed to increment run count', e);
+        }
+      }
+
       const result = await runCode({
         code,
         language,
         input: customInput,
       });
       setRunResult(result);
-      // stay on Testcase tab – user controls switching manually
     });
   };
 
@@ -36,13 +57,13 @@ export default function WorkspaceTabs({ submissionResult, code, language }: Work
     <div className="flex flex-col h-full bg-dark-bg text-sm">
       {/* Tab Headers */}
       <div className="flex-shrink-0 border-b border-border-color flex bg-card-bg">
-        {TABS.map(tab => (
+        {TABS.map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`px-4 py-2 font-medium transition-colors ${
-              activeTab === tab 
-                ? 'text-white border-b-2 border-arena-pink bg-white/5' 
+              activeTab === tab
+                ? 'text-white border-b-2 border-arena-pink bg-white/5'
                 : 'text-gray-400 hover:text-white hover:bg-white/5'
             }`}
           >
@@ -53,7 +74,6 @@ export default function WorkspaceTabs({ submissionResult, code, language }: Work
 
       {/* Content Area */}
       <div className="flex-grow flex flex-col min-h-0 relative">
-        
         {/* === TESTCASE TAB (Run Code) === */}
         {activeTab === 'Testcase' && (
           <div className="flex flex-col h-full">
@@ -134,10 +154,10 @@ export default function WorkspaceTabs({ submissionResult, code, language }: Work
           </div>
         )}
 
-        {/* === RESULT TAB (Submit Code) === */}
+        {/* === RESULT TAB (Submit Result) === */}
         {activeTab === 'Result' && (
           <div className="flex-grow overflow-y-auto p-6 bg-dark-bg">
-            {submissionResult.verdict ? (
+            {submissionResult.verdict || submissionResult.error ? (
               <div className="animate-slideUp">
                 {submissionResult.verdict === 'Accepted' ? (
                   <div className="flex flex-col items-center justify-center text-center space-y-4 mt-8">
@@ -155,7 +175,9 @@ export default function WorkspaceTabs({ submissionResult, code, language }: Work
                       <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center text-lg font-bold">
                         ✕
                       </div>
-                      <h2 className="text-xl font-bold">{submissionResult.verdict}</h2>
+                      <h2 className="text-xl font-bold">
+                        {submissionResult.verdict || 'Error'}
+                      </h2>
                     </div>
 
                     {submissionResult.error && (
@@ -167,7 +189,7 @@ export default function WorkspaceTabs({ submissionResult, code, language }: Work
                 )}
               </div>
             ) : (
-              <div className="h-full flex flex-col items-center justify-center text-gray-500 space-y-3">
+              <div className="H-full flex flex-col items-center justify-center text-gray-500 space-y-3">
                 <div className="text-4xl opacity-20">⚖️</div>
                 <p>Submit your code to see the official verdict.</p>
               </div>

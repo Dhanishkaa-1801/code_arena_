@@ -73,7 +73,9 @@ export default async function ContestsLobbyPage({
       <div className="mt-8 bg-card-bg border border-border-color p-5 rounded-xl flex flex-col md:flex-row items-center gap-6">
         <div className="flex items-center gap-3 text-gray-400 shrink-0">
           <Filter size={18} className="text-arena-pink" />
-          <span className="text-sm font-bold uppercase tracking-wider">Filter by Stream</span>
+          <span className="text-sm font-bold uppercase tracking-wider">
+            Filter by Stream
+          </span>
         </div>
         
         <div className="h-8 w-px bg-border-color hidden md:block" />
@@ -89,6 +91,8 @@ export default async function ContestsLobbyPage({
           >
             All Streams
           </Link>
+
+          {/* Updated labels only – logic unchanged */}
           <Link
             href="/contests?stream=1"
             className={`px-4 py-1.5 rounded-full text-sm font-bold transition-all ${
@@ -97,8 +101,9 @@ export default async function ContestsLobbyPage({
                 : 'bg-dark-bg text-gray-400 hover:text-white border border-border-color'
             }`}
           >
-            Stream 1
+            Stream 1 – AERO / BME / CIVIL / MECH / R&amp;A
           </Link>
+
           <Link
             href="/contests?stream=2"
             className={`px-4 py-1.5 rounded-full text-sm font-bold transition-all ${
@@ -107,8 +112,9 @@ export default async function ContestsLobbyPage({
                 : 'bg-dark-bg text-gray-400 hover:text-white border border-border-color'
             }`}
           >
-            Stream 2
+            Stream 2 – ECE / EEE / EIE
           </Link>
+
           <Link
             href="/contests?stream=3"
             className={`px-4 py-1.5 rounded-full text-sm font-bold transition-all ${
@@ -117,7 +123,7 @@ export default async function ContestsLobbyPage({
                 : 'bg-dark-bg text-gray-400 hover:text-white border border-border-color'
             }`}
           >
-            Stream 3
+            Stream 3 – CSE / IT / AI&amp;DS / M.Tech
           </Link>
         </div>
       </div>

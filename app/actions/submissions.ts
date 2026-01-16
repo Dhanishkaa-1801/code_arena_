@@ -30,14 +30,19 @@ const runCodeSchema = z.object({
 const decodeBase64 = (value?: string | null): string | null =>
   value ? Buffer.from(value, 'base64').toString('utf-8') : null;
 
-// 🔁 NEW: map department -> stream ('1' | '2' | '3')
+// 🔁 Stream mapping (final target mapping)
 function getStreamFromDepartment(dept: string | null): '1' | '2' | '3' {
   if (!dept) return '3';
   const d = dept.toUpperCase();
 
-  if (['CSE', 'MTECH', 'IT', 'AI&DS'].includes(d)) return '1';   // Comp stream
-  if (['EEE', 'ECE', 'EIE', 'R&A'].includes(d)) return '2';      // Electro/Robotics
-  if (['MECH', 'BME', 'CIVIL', 'AERO'].includes(d)) return '3';  // General/Core
+  // Stream 1 (Core/General): AERO, BME, CIVIL, MECH, R&A.
+  if (['AERO', 'BME', 'CIVIL', 'MECH', 'R&A'].includes(d)) return '1';
+
+  // Stream 2 (Electrical): ECE, EEE, EIE.
+  if (['ECE', 'EEE', 'EIE'].includes(d)) return '2';
+
+  // Stream 3 (Comp/IT): AIDS, CSE, IT, M.Tech.
+  if (['CSE', 'IT', 'AIDS', 'AI&DS', 'MTECH', 'M.TECH'].includes(d)) return '3';
 
   return '3';
 }
@@ -133,7 +138,7 @@ export async function runCode(payload: {
   }
 }
 
-// --- 2. SUBMIT CONTEST CODE (STRICT DEADLINE + STREAM CHECK) ---
+// --- 2. SUBMIT CONTEST CODE (STREAM CHECK + PROCTORING) ---
 export async function submitCode(
   prevState: SubmissionState,
   formData: FormData
@@ -148,6 +153,24 @@ export async function submitCode(
   const language = formData.get('language') as string;
   const problemId = Number(formData.get('problemId'));
   const contestId = Number(formData.get('contestId'));
+
+  // 🚨 Disqualification check based on tab switches
+  if (contestId) {
+    const { data: monitoring } = await supabase
+      .from('contest_monitoring')
+      .select('tab_switches')
+      .eq('user_id', user.id)
+      .eq('contest_id', contestId)
+      .maybeSingle();
+
+    if (monitoring && monitoring.tab_switches >= 3) {
+      return {
+        verdict: 'Error',
+        error:
+          '⛔ DISQUALIFIED: You have exceeded the maximum number of tab switches allowed. Submissions are disabled.',
+      };
+    }
+  }
 
   // Fetch contest with end_time + stream
   const { data: contest } = await supabase
@@ -191,7 +214,7 @@ export async function submitCode(
     }
   }
 
-  // If contest is active and stream matches, proceed
+  // If contest is active, stream matches, and NOT disqualified, proceed
   return processSubmission(user.id, problemId, contestId, code, language);
 }
 

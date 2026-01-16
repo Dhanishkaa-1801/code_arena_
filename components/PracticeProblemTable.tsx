@@ -85,10 +85,15 @@ export default function PracticeProblemTable({ problems }: { problems: PracticeP
     );
   };
 
-  // Helper for Stream Colors
+  // Helper for Stream Colors + Labels
   const renderStreamBadge = (stream: PracticeProblem['stream']) => {
-    const label =
-      stream === 'all' ? 'All' : `Stream ${stream}`;
+    const labels: Record<PracticeProblem['stream'], string> = {
+      all: 'All',
+      '1': 'Stream 1',
+      '2': 'Stream 2',
+      '3': 'Stream 3',
+    };
+
     const colors: Record<PracticeProblem['stream'], string> = {
       '1': 'bg-sky-900/30 text-sky-300',
       '2': 'bg-emerald-900/30 text-emerald-300',
@@ -100,7 +105,7 @@ export default function PracticeProblemTable({ problems }: { problems: PracticeP
       <span
         className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${colors[stream]}`}
       >
-        {label}
+        {labels[stream]}
       </span>
     );
   };
@@ -183,10 +188,10 @@ export default function PracticeProblemTable({ problems }: { problems: PracticeP
           <div className="flex items-center gap-2">
             <span className="text-gray-400 hidden sm:inline">Stream:</span>
             {[
-              { label: 'All', value: 'all' },
-              { label: '1', value: '1' },
-              { label: '2', value: '2' },
-              { label: '3', value: '3' },
+              { label: 'Stream All', value: 'all' },
+              { label: 'Stream 1 – AERO / BME / CIVIL / MECH / R&A', value: '1' },
+              { label: 'Stream 2 – ECE / EEE / EIE', value: '2' },
+              { label: 'Stream 3 – CSE / IT / AI&DS / M.Tech', value: '3' },
             ].map((opt) => (
               <button
                 key={opt.value}
@@ -197,7 +202,7 @@ export default function PracticeProblemTable({ problems }: { problems: PracticeP
                     : 'bg-dark-bg text-gray-400 hover:text-white'
                 }`}
               >
-                {opt.value === 'all' ? 'Stream All' : `Stream ${opt.label}`}
+                {opt.label}
               </button>
             ))}
           </div>

@@ -201,17 +201,17 @@ export default async function ViewContestsPage() {
           {renderStreamColumn('Stream All', 'All departments', allStream)}
           {renderStreamColumn(
             'Stream 1',
-            'CSE, MTECH, IT, AI&DS',
+            'AERO, BME, CIVIL, MECH, R&A',
             stream1
           )}
           {renderStreamColumn(
             'Stream 2',
-            'EEE, ECE, EIE, R&A',
+            'ECE, EEE, EIE',
             stream2
           )}
           {renderStreamColumn(
             'Stream 3',
-            'MECH, BME, CIVIL, AERO',
+            'CSE, IT, AI&DS, M.Tech',
             stream3
           )}
         </div>
